@@ -15,14 +15,8 @@ enum StremioServer {
     }
     static var isCustom: Bool { base != embedded }
 
-    /// Whether the embedded server can proxy (the Lite build ships no node server, so it can't).
-    static var canProxy: Bool {
-        #if STREMIOX_NO_EMBEDDED_SERVER
-        return false
-        #else
-        return true
-        #endif
-    }
+    /// Whether the embedded server can proxy.
+    static var canProxy: Bool { true }
 
     /// Route a header-gated HTTP(S) stream through the embedded server's `/proxy/` endpoint, the
     /// same path official Stremio uses for `notWebReady` add-on streams. The server fetches each

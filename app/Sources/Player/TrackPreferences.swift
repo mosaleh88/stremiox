@@ -5,20 +5,10 @@ enum PlaybackSettings {
         static let directLinksOnly = "stremiox.directLinksOnly"
     }
 
-    static var directLinksOnlyForced: Bool {
-        #if STREMIOX_NO_EMBEDDED_SERVER
-        true
-        #else
-        false
-        #endif
-    }
+    static var directLinksOnlyForced: Bool { false }
 
     static var directLinksOnly: Bool {
-        #if STREMIOX_NO_EMBEDDED_SERVER
-        true
-        #else
         UserDefaults.standard.bool(forKey: Key.directLinksOnly)
-        #endif
     }
 
     static var torrentsDisabled: Bool { directLinksOnly }

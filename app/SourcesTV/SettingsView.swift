@@ -812,11 +812,9 @@ struct SettingsView: View {
 
     private func setDirectLinksOnly(_ value: Bool) {
         directLinksOnly = value
-        #if !STREMIOX_NO_EMBEDDED_SERVER
         if !value, !ProcessInfo.processInfo.arguments.contains("-stremiox-no-server") {
             NodeServer.startIfNeeded()
         }
-        #endif
     }
 
     // MARK: - IPTV Xtream

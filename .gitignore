@@ -1,4 +1,4 @@
-# --- build artifacts & deps (reconstructed by scripts/build-web.sh) ---
+# --- build artifacts & deps ---
 web/
 **/node_modules/
 **/build/
@@ -22,9 +22,6 @@ app/Vendor/
 # --- bundled streaming server (extracted from Stremio's macOS app; proprietary) ---
 app/Resources/server.js
 
-# --- standalone node binary for the macOS streaming server (downloaded by
-#     scripts/fetch-node-macos.sh; ~95MB; nodejs-mobile has no macOS slice) ---
-app/Resources/node-darwin-arm64
 
 # --- tooling / misc ---
 .DS_Store
