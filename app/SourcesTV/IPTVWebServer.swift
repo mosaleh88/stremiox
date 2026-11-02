@@ -341,7 +341,7 @@ public final class IPTVWebServer: ObservableObject {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <title>StremioX Manager</title>
+            <title>Xtv Manager</title>
             <style>
                 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
                 body {

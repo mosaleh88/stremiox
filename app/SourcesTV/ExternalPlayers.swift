@@ -30,8 +30,8 @@ enum ExternalPlayers {
                launch: { "senplayer://x-callback-url/play?url=\($0)" }),
         Player(name: "OutPlayer", scheme: "outplayer",
                launch: { "outplayer://\($0)" }),
-        Player(name: "nPlayer", scheme: "nplayer-stremiox",
-               launch: { "nplayer-stremiox://weblink?action=addotgo&url=\($0)" }),
+        Player(name: "nPlayer", scheme: "nplayer-xtv",
+               launch: { "nplayer-xtv://weblink?action=addotgo&url=\($0)" }),
         Player(name: "MX Player", scheme: "mxplayer",
                launch: { "mxplayer://\($0)" }),
     ]

@@ -498,7 +498,7 @@ struct CuratedCardItem: Identifiable {
     var backdropURL: URL?
     var posterURL: URL? = nil
     var tag: String? = nil            // e.g. "New"
-    var subtag: String? = nil         // e.g. "Another Season Is Coming" or "#1 Show on StremioX"
+    var subtag: String? = nil         // e.g. "Another Season Is Coming" or "#1 Show on Xtv"
     var genres: [String] = []
     let meta: PlaybackMeta?
 }

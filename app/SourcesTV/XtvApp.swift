@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct StremioTVApp: App {
+struct XtvApp: App {
     @StateObject private var account = StremioAccount()
     @StateObject private var core = CoreBridge.shared
     @StateObject private var presenter = PlayerPresenter()
@@ -30,7 +30,7 @@ struct StremioTVApp: App {
         // Boot the native stremio-core engine (hydrates library/profile from storage, starts the
         // event loop). The schema-version log is an end-to-end smoke check of the Rust⇄Swift FFI.
         CoreBridge.shared.start()
-        NSLog("[StremioX] stremio-core schema version = \(CoreBridge.shared.schemaVersion)")
+        NSLog("[Xtv] stremio-core schema version = \(CoreBridge.shared.schemaVersion)")
     }
 
     var body: some Scene {

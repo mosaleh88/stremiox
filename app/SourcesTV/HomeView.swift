@@ -106,7 +106,7 @@ struct HomeView: View {
                     backdropURL: tm.backdropURL,
                     posterURL: tm.posterURL,
                     tag: index == 0 ? "New" : nil,
-                    subtag: index == 0 ? "Another Season Is Coming" : (index == 1 ? "#1 Show on StremioX" : nil),
+                    subtag: index == 0 ? "Another Season Is Coming" : (index == 1 ? "#1 Show on Xtv" : nil),
                     genres: [],
                     meta: tm.meta
                 )

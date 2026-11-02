@@ -961,7 +961,7 @@ struct SettingsView: View {
                 HStack(spacing: Theme.Space.md) {
                     Button { showRestartConfirm = true } label: { Label("Restart App", systemImage: "arrow.clockwise.circle") }
                         .buttonStyle(ChipButtonStyle())
-                        .confirmationDialog("Restart StremioX?", isPresented: $showRestartConfirm, titleVisibility: .visible) {
+                        .confirmationDialog("Restart Xtv?", isPresented: $showRestartConfirm, titleVisibility: .visible) {
                             Button("Quit Now", role: .destructive) { exit(0) }
                             Button("Cancel", role: .cancel) {}
                         } message: {

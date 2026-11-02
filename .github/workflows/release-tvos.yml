@@ -81,24 +81,24 @@ jobs:
       - name: Build (unsigned Release, same as the published builds)
         run: |
           cd app
-          xcodebuild -project StremioX.xcodeproj -scheme StremioXTV \
+          xcodebuild -project Xtv.xcodeproj -scheme Xtv \
             -configuration Release -destination 'generic/platform=tvOS' \
             -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
 
       - name: Package the IPA
         run: |
           mkdir -p out/full/Payload
-          cp -R app/build/ci/Build/Products/Release-appletvos/StremioXTV.app out/full/Payload/
-          (cd out/full && zip -qry ../StremioX-tvOS-ci.ipa Payload)
-          shasum -a 256 out/StremioX-tvOS-ci.ipa | tee out/SHA256SUMS-ci.txt
+          cp -R app/build/ci/Build/Products/Release-appletvos/Xtv.app out/full/Payload/
+          (cd out/full && zip -qry ../Xtv-tvOS-ci.ipa Payload)
+          shasum -a 256 out/Xtv-tvOS-ci.ipa | tee out/SHA256SUMS-ci.txt
 
       - name: Upload artifact (manual runs)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: StremioX-tvOS-ci
+          name: Xtv-tvOS-ci
           path: |
-            out/StremioX-tvOS-ci.ipa
+            out/Xtv-tvOS-ci.ipa
             out/SHA256SUMS-ci.txt
 
       - name: Attach the CI builds to the release
@@ -107,9 +107,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          mv out/StremioX-tvOS-ci.ipa "out/StremioX-tvOS-$TAG-ci.ipa"
-          shasum -a 256 "out/StremioX-tvOS-$TAG-ci.ipa" > out/SHA256SUMS-ci.txt
+          mv out/Xtv-tvOS-ci.ipa "out/Xtv-tvOS-$TAG-ci.ipa"
+          shasum -a 256 "out/Xtv-tvOS-$TAG-ci.ipa" > out/SHA256SUMS-ci.txt
           gh release upload "$TAG" \
-            "out/StremioX-tvOS-$TAG-ci.ipa" \
+            "out/Xtv-tvOS-$TAG-ci.ipa" \
             out/SHA256SUMS-ci.txt \
             --clobber

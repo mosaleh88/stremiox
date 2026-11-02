@@ -9,7 +9,7 @@
 		<string>vlc</string>
 		<string>senplayer</string>
 		<string>outplayer</string>
-		<string>nplayer-stremiox</string>
+		<string>nplayer-xtv</string>
 		<string>mxplayer</string>
 	</array>
 	<key>NSAppTransportSecurity</key>

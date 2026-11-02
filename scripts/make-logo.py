@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-"""Derive every app icon and banner from the StremioX identity (the maintainer's
-design: a two-tone violet pinwheel X with a white centre dot on a dark indigo
-rounded square, wordmark "Stremio" in gray with a violet X).
-
-The reference renders live in docs/brand/ (AI generations with a baked-in
-checkerboard, unusable directly), so the geometry is reconstructed here with
-real transparency, colours sampled from the reference. Run from the repo root:
-python3 scripts/make-logo.py
+"""Derive every app icon and banner from the Xtv identity:
+a two-tone violet pinwheel X with a white centre dot on a dark indigo
+rounded square, wordmark "Xtv" (violet X, light tv).
 """
 from PIL import Image, ImageDraw, ImageFont
 import math
@@ -14,7 +9,6 @@ import os
 
 SS = 4  # supersampling for crisp edges
 
-# Sampled from docs/brand/lockup-reference.png
 INDIGO = (26, 15, 58)            # icon square
 VIOLET_LIGHT = (109, 54, 243)    # NW-SE bar, wordmark X
 VIOLET_DARK_TOP = (89, 43, 203)  # NE-SW bar, top
@@ -87,23 +81,24 @@ def save(img, path):
 
 
 def lockup(w, h, path, text_color, background=None, icon_rounded=True):
-    """Icon + Stremio[X] wordmark, matching the reference composition."""
+    """Icon + Xtv wordmark."""
     img = Image.new("RGBA", (w, h), background or (0, 0, 0, 0))
     icon_side = int(h * 0.72)
     icon = draw_icon(icon_side, rounded=icon_rounded)
     font = ImageFont.truetype(_HELVETICA, int(h * 0.42), index=1)   # ttc index 1 = Helvetica Bold
     d = ImageDraw.Draw(img)
-    name = "Stremio"
-    tw = d.textlength(name, font=font)
-    xw = d.textlength("X", font=font)
+    name_x = "X"
+    name_tv = "tv"
+    xw = d.textlength(name_x, font=font)
+    tvw = d.textlength(name_tv, font=font)
     gap = int(h * 0.10)
-    total = icon_side + gap + tw + xw
+    total = icon_side + gap + xw + tvw
     x = (w - total) / 2
     y_icon = (h - icon_side) // 2
     img.alpha_composite(icon, (int(x), y_icon))
     ty = (h - font.size * 1.30) / 2
-    d.text((x + icon_side + gap, ty), name, font=font, fill=text_color)
-    d.text((x + icon_side + gap + tw, ty), "X", font=font, fill=VIOLET_LIGHT)
+    d.text((x + icon_side + gap, ty), name_x, font=font, fill=VIOLET_LIGHT)
+    d.text((x + icon_side + gap + xw, ty), name_tv, font=font, fill=text_color)
     save(img, path)
 
 
@@ -122,33 +117,27 @@ lockup(1920, 720, os.path.join(BRAND, "Top Shelf Image.imageset/tv_topshelf.png"
 lockup(2320, 720, os.path.join(BRAND, "Top Shelf Image Wide.imageset/tv_topshelf_wide.png"),
        TEXT_LIGHT, background=INDIGO + (255,))
 
-# iOS icon: the square icon, full bleed (the system masks its own corners)
-save(draw_icon(1024, rounded=False).convert("RGB"),
-     os.path.join(ROOT, "app/Resources/Assets.xcassets/AppIcon.appiconset/ios_1024.png"))
-
 # README: transparent lockups for GitHub's light and dark themes
 lockup(1600, 400, os.path.join(ROOT, "docs/logo-light.png"), TEXT_GRAY)
 lockup(1600, 400, os.path.join(ROOT, "docs/logo-dark.png"), TEXT_LIGHT)
 
-# Standalone app icon (rounded, transparent corners): the linkable brand file,
-# and the file to upload as the GitHub account avatar.
+# Standalone app icon
 save(draw_icon(1024, rounded=True), os.path.join(ROOT, "docs/brand/app-icon.png"))
 
-# GitHub social preview (1280x640): what link embeds show on Reddit and the rest.
-# Upload at repo Settings > General > Social preview.
+# Social preview
 social = Image.new("RGBA", (1280, 640), INDIGO + (255,))
 _icon = draw_icon(300)
 _font = ImageFont.truetype(_HELVETICA, 150, index=1)
 _d = ImageDraw.Draw(social)
-_tw = _d.textlength("Stremio", font=_font)
 _xw = _d.textlength("X", font=_font)
-_total = 300 + 56 + _tw + _xw
+_tvw = _d.textlength("tv", font=_font)
+_total = 300 + 56 + _xw + _tvw
 _x = (1280 - _total) / 2
 social.alpha_composite(_icon, (int(_x), 138))
-_d.text((_x + 356, 195), "Stremio", font=_font, fill=TEXT_LIGHT)
-_d.text((_x + 356 + _tw, 195), "X", font=_font, fill=VIOLET_LIGHT)
+_d.text((_x + 356, 195), "X", font=_font, fill=VIOLET_LIGHT)
+_d.text((_x + 356 + _xw, 195), "tv", font=_font, fill=TEXT_LIGHT)
 _sub = ImageFont.truetype(_HELVETICA, 40, index=0)
-_caption = "Stremio for Apple TV, iPhone, and iPad. Updated, native, free."
+_caption = "Xtv for Apple TV. Native, fast, free."
 _cw = _d.textlength(_caption, font=_sub)
 _d.text(((1280 - _cw) / 2, 425), _caption, font=_sub, fill=(170, 165, 190, 255))
 save(social.convert("RGB"), os.path.join(ROOT, "docs/brand/social-preview.png"))

@@ -113,15 +113,15 @@ final class CoreBridge: ObservableObject {
             clean = clean.hasSuffix("/") ? clean + "manifest.json" : clean + "/manifest.json"
         }
         guard let url = URL(string: clean) else {
-            throw NSError(domain: "StremioX", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid manifest URL"])
+            throw NSError(domain: "Xtv", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid manifest URL"])
         }
         let (data, resp) = try await URLSession.shared.data(from: url)
         guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw NSError(domain: "StremioX", code: 404, userInfo: [NSLocalizedDescriptionKey: "Could not fetch manifest (HTTP error)"])
+            throw NSError(domain: "Xtv", code: 404, userInfo: [NSLocalizedDescriptionKey: "Could not fetch manifest (HTTP error)"])
         }
         guard let manifest = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let _ = manifest["id"] as? String else {
-            throw NSError(domain: "StremioX", code: 422, userInfo: [NSLocalizedDescriptionKey: "Invalid Stremio addon manifest"])
+            throw NSError(domain: "Xtv", code: 422, userInfo: [NSLocalizedDescriptionKey: "Invalid Stremio addon manifest"])
         }
         let descriptor: [String: Any] = [
             "manifest": manifest,

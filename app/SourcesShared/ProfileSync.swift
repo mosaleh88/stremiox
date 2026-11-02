@@ -75,7 +75,7 @@ enum ProfileSync {
             let watched = (item["state"] as? [String: Any])?["watched"] as? String ?? ""
             if !watched.isEmpty { salvaged[id] = watched }
             guard !watched.isEmpty else { continue }   // already clean
-            await putLibraryItem(sanitizedDoc(id: id, name: item["name"] as? String ?? "StremioX"),
+            await putLibraryItem(sanitizedDoc(id: id, name: item["name"] as? String ?? "Xtv"),
                                  authKey: authKey)
             repaired += 1
         }
