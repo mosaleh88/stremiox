@@ -113,8 +113,8 @@ struct RootTabView: View {
     @EnvironmentObject private var account: StremioAccount
     @EnvironmentObject private var theme: ThemeManager
     @ObservedObject private var appSettings = AppSettings.shared
+    @ObservedObject private var sidebarState = SidebarState.shared
     @State private var selectedTab: TabItem = .home
-    @State private var isSidebarOpen: Bool = false
     @FocusState private var sidebarFocusedItem: TabItem?
     @FocusState private var isHomePillFocused: Bool
     @State private var resetTokens = [Int](repeating: 0, count: 7)
@@ -141,10 +141,10 @@ struct RootTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .disabled(isSidebarOpen)
+            .disabled(sidebarState.isOpen)
 
-            // Top-left translucent "Home" / tab pill with back chevron
-            if !isSidebarOpen {
+            // Top-left translucent "Home" / tab pill matching Photo 1 (hidden when deep in a detail page)
+            if !sidebarState.isOpen && !sidebarState.isDeepInNavigation {
                 VStack {
                     HStack {
                         homePill
@@ -159,22 +159,22 @@ struct RootTabView: View {
             }
 
             // Dimmed scrim behind open sidebar
-            if isSidebarOpen {
+            if sidebarState.isOpen {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
                     .zIndex(30)
                     .onTapGesture {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                            isSidebarOpen = false
+                            sidebarState.isOpen = false
                         }
                     }
             }
 
             // Left Sidebar Panel
-            if isSidebarOpen {
+            if sidebarState.isOpen {
                 SidebarView(
                     selectedTab: $selectedTab,
-                    isOpen: $isSidebarOpen,
+                    isOpen: $sidebarState.isOpen,
                     focusedItem: $sidebarFocusedItem
                 )
                 .padding(.leading, 40)
@@ -185,12 +185,19 @@ struct RootTabView: View {
         .onExitCommand {
             handleMenuPress()
         }
+        .onMoveCommand { direction in
+            if direction == .left && !sidebarState.isOpen {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                    sidebarState.isOpen = true
+                }
+            }
+        }
         .onChange(of: selectedTab) { old, _ in
             if old.rawValue >= 0, old.rawValue < resetTokens.count {
                 resetTokens[old.rawValue] += 1
             }
         }
-        .onChange(of: isSidebarOpen) { _, open in
+        .onChange(of: sidebarState.isOpen) { _, open in
             if open {
                 sidebarFocusedItem = selectedTab
             }
@@ -203,28 +210,41 @@ struct RootTabView: View {
     private var homePill: some View {
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                isSidebarOpen = true
+                sidebarState.isOpen = true
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 15, weight: .bold))
+                // Left chevron ‹
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+
+                // Circular container with house icon
+                ZStack {
+                    Circle()
+                        .fill(isHomePillFocused ? Color.black.opacity(0.12) : Color.white.opacity(0.20))
+                        .frame(width: 26, height: 26)
+                    Image(systemName: selectedTab == .home ? "house.fill" : selectedTab.systemImage)
+                        .font(.system(size: 12, weight: .bold))
+                }
+
+                // Title: "Home"
                 Text(selectedTab.title)
                     .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(isHomePillFocused ? Color.black : Color.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.leading, 12)
+            .padding(.trailing, 16)
+            .padding(.vertical, 7)
             .background(
                 Capsule()
-                    .fill(isHomePillFocused ? Color.white : Color.black.opacity(0.65))
+                    .fill(isHomePillFocused ? Color.white : Color.black.opacity(0.45))
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(isHomePillFocused ? Color.white : Color.white.opacity(0.35), lineWidth: 1.5)
+                    .strokeBorder(isHomePillFocused ? Color.white : Color.white.opacity(0.18), lineWidth: 1)
             )
-            .scaleEffect(isHomePillFocused ? 1.08 : 1.0)
-            .shadow(color: isHomePillFocused ? Color.black.opacity(0.55) : Color.clear, radius: 12, y: 5)
+            .scaleEffect(isHomePillFocused ? 1.06 : 1.0)
+            .shadow(color: isHomePillFocused ? Color.black.opacity(0.5) : Color.clear, radius: 14, y: 6)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHomePillFocused)
         }
         .buttonStyle(.plain)
@@ -232,9 +252,9 @@ struct RootTabView: View {
     }
 
     private func handleMenuPress() {
-        if !isSidebarOpen {
+        if !sidebarState.isOpen {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                isSidebarOpen = true
+                sidebarState.isOpen = true
             }
         } else {
             if selectedTab != .home {
@@ -242,7 +262,7 @@ struct RootTabView: View {
                 sidebarFocusedItem = .home
             } else {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                    isSidebarOpen = false
+                    sidebarState.isOpen = false
                 }
             }
         }

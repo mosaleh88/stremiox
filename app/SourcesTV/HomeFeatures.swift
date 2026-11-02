@@ -182,7 +182,7 @@ struct HeroCarouselView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "tv.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(theme.accent)
+                        .foregroundStyle(Color.white.opacity(0.85))
                     Text(item.type.capitalized)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
@@ -199,7 +199,7 @@ struct HeroCarouselView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 13))
-                                .foregroundStyle(theme.accent)
+                                .foregroundStyle(Color.white.opacity(0.85))
                             Text(rating)
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(Theme.Palette.textPrimary)
@@ -377,7 +377,7 @@ struct LandscapeCWCard: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
+                    .strokeBorder(isFocused ? Color.white.opacity(0.35) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
             )
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
@@ -518,7 +518,7 @@ private struct Top10ItemView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
+                        .strokeBorder(isFocused ? Color.white.opacity(0.35) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
                 )
 
                 // Title and Genre underneath matching Apple TV Photo 5
@@ -666,7 +666,7 @@ private struct CuratedCardView: View {
                     if let subtag = item.subtag, !subtag.isEmpty {
                         Text(subtag)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.Palette.accentBright)
+                            .foregroundStyle(Color.white.opacity(0.85))
                             .lineLimit(1)
                             .padding(.top, 2)
                     }
@@ -677,7 +677,7 @@ private struct CuratedCardView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
+                    .strokeBorder(isFocused ? Color.white.opacity(0.3) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
             )
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))

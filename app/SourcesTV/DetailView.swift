@@ -54,9 +54,20 @@ struct DetailView: View {
         // on TVs that crop (field report). The backdrops self-bleed (FullBleedBackdrop ignores
         // the safe area itself), so only text and controls moved back inside the safe zone.
         .onAppear {
+            SidebarState.shared.isDeepInNavigation = true
             core.loadMeta(type: type, id: id)
             captureHero()
             extractTint()
+        }
+        .onDisappear {
+            SidebarState.shared.isDeepInNavigation = false
+        }
+        .onMoveCommand { direction in
+            if direction == .left {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                    SidebarState.shared.isOpen = true
+                }
+            }
         }
         .onChange(of: core.metaDetails?.meta?.id) {
             captureHero()
@@ -218,7 +229,7 @@ struct DetailView: View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Space.sm) {
             Text(eyebrow)
                 .font(Theme.Typography.eyebrow).tracking(1.5)
-                .foregroundStyle(Theme.Palette.accent)
+                .foregroundStyle(Color.white.opacity(0.85))
             Text(title)
                 .font(Theme.Typography.label)
                 .foregroundStyle(Theme.Palette.textPrimary)
@@ -369,7 +380,7 @@ struct DetailView: View {
         HStack(spacing: Theme.Space.sm) {
             if let imdb = m.imdbRating {
                 HStack(spacing: 5) {
-                    Image(systemName: "star.fill").font(.system(size: 13)).foregroundStyle(Theme.Palette.accent)
+                    Image(systemName: "star.fill").font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.85))
                     Text(imdb)
                 }
             }
@@ -594,7 +605,7 @@ struct CoreSeasonedEpisodes: View {
         .overlay(alignment: .topTrailing) {
             if isWatched {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.title2).foregroundStyle(Theme.Palette.accent).padding(8).shadow(radius: 3)
+                    .font(.title2).foregroundStyle(Color.white).padding(8).shadow(radius: 3)
             }
         }
         .overlay(alignment: .bottom) {
@@ -653,7 +664,7 @@ private struct EpisodeCardContent: View {
                         VStack {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.title3)
-                                .foregroundStyle(Theme.Palette.accent)
+                                .foregroundStyle(Color.white)
                                 .padding(8)
                                 .shadow(radius: 4)
                             Spacer()
@@ -675,7 +686,7 @@ private struct EpisodeCardContent: View {
                 HStack {
                     Text("EPISODE \(v.episode ?? 0)")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(isFocused ? Theme.Palette.accentBright : Theme.Palette.textTertiary)
+                        .foregroundStyle(isFocused ? Color.white : Theme.Palette.textTertiary)
                     Spacer()
                     if let released = v.released, released.count >= 4 {
                         Text(String(released.prefix(4)))
@@ -728,7 +739,7 @@ struct CoreEpisodeStreams: View {
                     VStack(alignment: .leading, spacing: Theme.Space.sm) {
                         Text(meta.name.uppercased())
                             .font(Theme.Typography.eyebrow).tracking(1.5)
-                            .foregroundStyle(Theme.Palette.accent)
+                            .foregroundStyle(Color.white.opacity(0.85))
                         Text(episodeTitle)
                             .font(Theme.Typography.screenTitle)
                             .foregroundStyle(Theme.Palette.textPrimary)
@@ -765,7 +776,7 @@ struct CoreEpisodeStreams: View {
             if let rt = meta.runtime { Text(rt) }
             if let imdb = meta.imdbRating {
                 HStack(spacing: 6) {
-                    Image(systemName: "star.fill").foregroundStyle(Theme.Palette.accent)
+                    Image(systemName: "star.fill").foregroundStyle(Color.white.opacity(0.85))
                     Text(imdb)
                 }
             }
@@ -1012,7 +1023,7 @@ struct CoreStreamList: View {
         HStack(alignment: .top, spacing: Theme.Space.md) {
             Image(systemName: enabled ? (stream.isTorrent ? "arrow.down.circle.fill" : "play.circle.fill") : "lock.circle")
                 .font(.system(size: 30))
-                .foregroundStyle(enabled ? Theme.Palette.accent : Theme.Palette.textTertiary)
+                .foregroundStyle(enabled ? Color.white : Theme.Palette.textTertiary)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     badge(addon.uppercased())

@@ -1,6 +1,13 @@
 import SwiftUI
 import Combine
 
+/// Shared global sidebar presentation and navigation state
+final class SidebarState: ObservableObject {
+    static let shared = SidebarState()
+    @Published var isOpen: Bool = false
+    @Published var isDeepInNavigation: Bool = false
+}
+
 /// Available navigation tabs matching the Apple TV sidebar order.
 enum TabItem: Int, CaseIterable, Identifiable {
     case search = 0
@@ -116,7 +123,7 @@ struct SidebarView: View {
             HStack(spacing: 8) {
                 Text("Xtv")
                     .font(.system(size: 14, weight: .black, design: .serif))
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(Color.white)
                 Text("tvOS")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.4))
@@ -142,7 +149,7 @@ struct SidebarView: View {
     private var profileAvatar: some View {
         ZStack {
             Circle()
-                .fill(theme.accent)
+                .fill(Color.white.opacity(0.25))
             Text(String((profiles.active?.name ?? "U").prefix(1)).uppercased())
                 .font(.system(size: 18, weight: .black))
                 .foregroundStyle(Color.white)

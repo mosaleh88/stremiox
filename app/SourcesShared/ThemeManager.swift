@@ -57,7 +57,7 @@ final class ThemeManager: ObservableObject {
 
     private init() {
         let savedAccent = UserDefaults.standard.string(forKey: Self.accentKey)
-        accentID = (savedAccent == nil || savedAccent == "ember") ? "ocean" : savedAccent!
+        accentID = (savedAccent == nil || savedAccent == "ember" || savedAccent == "ocean") ? "apple" : savedAccent!
         oled = UserDefaults.standard.bool(forKey: Self.oledKey)
         let saved = UserDefaults.standard.object(forKey: Self.textScaleKey) as? Double
         textScale = saved.map { min(max($0, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound) } ?? 1.0
@@ -104,16 +104,12 @@ final class ThemeManager: ObservableObject {
         textScale = (next * 100).rounded() / 100
     }
 
-    /// Eight curated accents. Cupertino (Ocean) is the default matching the native Apple TV design.
+    /// Pure Apple TV default monochrome design + optional accents
     static let accents: [AccentOption] = [
+        AccentOption(id: "apple",   label: "Apple TV",  base: Color.white, bright: Color.white),
+        AccentOption(id: "mono",    label: "Mono",      base: themeRGB(0.820, 0.800, 0.761), bright: themeRGB(0.922, 0.910, 0.882)),
         AccentOption(id: "ocean",   label: "Cupertino", base: themeRGB(0.040, 0.520, 1.000), bright: themeRGB(0.220, 0.680, 1.000)),
         AccentOption(id: "ember",   label: "Ember",     base: themeRGB(0.949, 0.471, 0.294), bright: themeRGB(1.000, 0.569, 0.388)),
-        AccentOption(id: "forest",  label: "Forest",    base: themeRGB(0.376, 0.706, 0.443), bright: themeRGB(0.478, 0.831, 0.553)),
-        AccentOption(id: "royal",   label: "Royal",   base: themeRGB(0.580, 0.451, 0.902), bright: themeRGB(0.694, 0.561, 0.984)),
-        AccentOption(id: "crimson", label: "Crimson", base: themeRGB(0.886, 0.310, 0.357), bright: themeRGB(0.984, 0.420, 0.463)),
-        AccentOption(id: "gold",    label: "Gold",    base: themeRGB(0.886, 0.706, 0.290), bright: themeRGB(0.980, 0.804, 0.400)),
-        AccentOption(id: "rose",    label: "Rose",    base: themeRGB(0.929, 0.451, 0.620), bright: themeRGB(1.000, 0.561, 0.710)),
-        AccentOption(id: "mono",    label: "Mono",    base: themeRGB(0.820, 0.800, 0.761), bright: themeRGB(0.922, 0.910, 0.882)),
     ]
 
     private var option: AccentOption { Self.accents.first { $0.id == accentID } ?? Self.accents[0] }
@@ -121,15 +117,10 @@ final class ThemeManager: ObservableObject {
     var accent: Color { option.base }
     var accentBright: Color { option.bright }
 
-    /// Ink that sits ON the accent fill — primary-button labels (Watch/Play/Save/Sign In), on-accent
-    /// spinners, the profile "current" check. It was a hardcoded warm-brown literal, so it kept an
-    /// orange cast on top of ANY accent — the "still looks orange after switching to pink" report.
-    /// Now derived from the accent's luminance: Ember keeps its signature warm-brown; every other
-    /// accent gets a neutral near-black on light/mid fills or near-white on dark fills (max contrast,
-    /// no stale hue). Re-reads live when the accent changes, like `accent` itself.
     var onAccent: Color {
-        if accentID == "ember" { return themeRGB(0.106, 0.067, 0.043) }   // signature warm ink on ember
-        return accentLuminance > 0.5 ? themeRGB(0.10, 0.10, 0.11) : themeRGB(0.97, 0.97, 0.96)
+        if accentID == "apple" { return Color.black }
+        if accentID == "ember" { return themeRGB(0.106, 0.067, 0.043) }
+        return accentLuminance > 0.5 ? Color.black : Color.white
     }
 
     /// Perceived (Rec. 709) luminance of the current accent, for picking the on-accent ink.
@@ -153,21 +144,8 @@ final class ThemeManager: ObservableObject {
     var surface3: Color { isLight ? themeRGB(0.84, 0.84, 0.88) : (oled ? themeRGB(0.141, 0.141, 0.149) : tintedDark(0.225)) }
     var hairline: Color { isLight ? themeRGB(0.80, 0.80, 0.84) : (oled ? themeRGB(0.196, 0.196, 0.204) : tintedDark(0.260)) }
 
-    /// A dark surface at `brightness`, hued toward the current accent. Subtle (like the original warm
-    /// near-black) but it now shifts with the chosen accent. Saturation is half the accent's, capped, so
-    /// vivid accents tint gently and Mono stays near-neutral.
+    /// Pure neutral dark surfaces matching Apple TV (no color tinting)
     private func tintedDark(_ brightness: Double) -> Color {
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        #if canImport(UIKit)
-        guard UIColor(accent).getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
-            return themeRGB(brightness, brightness, brightness)
-        }
-        #else
-        guard let rgb = NSColor(accent).usingColorSpace(.sRGB) else {
-            return themeRGB(brightness, brightness, brightness)
-        }
-        rgb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-        #endif
-        return Color(hue: Double(h), saturation: min(Double(s) * 0.5, 0.34), brightness: brightness)
+        themeRGB(brightness, brightness, brightness)
     }
 }
