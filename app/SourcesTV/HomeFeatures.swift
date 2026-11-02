@@ -112,7 +112,7 @@ struct HeroCarouselView: View {
                         }
                     }
                     .padding(.trailing, 80)
-                    .padding(.bottom, 74)
+                    .padding(.bottom, 112)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
@@ -169,7 +169,7 @@ struct HeroCarouselView: View {
                 endPoint: .bottom
             )
 
-            // Left-aligned stacked Hero Info Block (raised ~70pt to respect tvOS safe area)
+            // Left-aligned stacked Hero Info Block (raised to respect tvOS safe area)
             VStack(alignment: .leading, spacing: 10) {
                 // Capsule Badge
                 Text(item.type == "series" ? "SERIES" : "FEATURED")
@@ -279,7 +279,7 @@ struct HeroCarouselView: View {
                 .focused($isControlsFocused)
             }
             .padding(.horizontal, 64)
-            .padding(.bottom, 72)
+            .padding(.bottom, 110)
         }
     }
 }
@@ -296,7 +296,7 @@ struct HomePillButton: View {
                 SidebarState.shared.isOpen = true
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 // Back chevron
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .bold))
@@ -311,13 +311,10 @@ struct HomePillButton: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isFocused ? Color.white.opacity(0.28) : Color.black.opacity(0.40))
+                    .fill(Color.black.opacity(0.45))
             )
-            .overlay(
-                Capsule()
-                    .strokeBorder(Color.white.opacity(isFocused ? 0.35 : 0.12), lineWidth: 1)
-            )
-            .scaleEffect(isFocused && !reduceMotion ? 1.05 : 1.0)
+            .scaleEffect(isFocused && !reduceMotion ? 1.10 : 1.0)
+            .shadow(color: isFocused ? Color.black.opacity(0.7) : Color.clear, radius: 14, y: 6)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
         }
         .buttonStyle(.plain)
