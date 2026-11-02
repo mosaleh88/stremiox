@@ -62,13 +62,6 @@ struct DetailView: View {
         .onDisappear {
             SidebarState.shared.isDeepInNavigation = false
         }
-        .onMoveCommand { direction in
-            if direction == .left {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                    SidebarState.shared.isOpen = true
-                }
-            }
-        }
         .onChange(of: core.metaDetails?.meta?.id) {
             captureHero()
             extractTint()
@@ -714,10 +707,6 @@ private struct EpisodeCardContent: View {
         }
         .frame(width: 320, height: 284)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3 : 0)
-        )
     }
 }
 

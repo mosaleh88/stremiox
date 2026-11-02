@@ -90,28 +90,35 @@ struct HeroCarouselView: View {
         if items.isEmpty {
             EmptyView()
         } else {
-            ZStack(alignment: .bottomLeading) {
-                TabView(selection: $currentIndex) {
-                    ForEach(Array(items.prefix(6).enumerated()), id: \.element.id) { index, item in
-                        heroCarouselSlide(item)
-                            .tag(index)
+            ZStack(alignment: .topLeading) {
+                ZStack(alignment: .bottomLeading) {
+                    TabView(selection: $currentIndex) {
+                        ForEach(Array(items.prefix(6).enumerated()), id: \.element.id) { index, item in
+                            heroCarouselSlide(item)
+                                .tag(index)
+                        }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 840)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 840)
 
-                // Page indicator dots at bottom right
-                HStack(spacing: 8) {
-                    ForEach(0..<min(items.count, 6), id: \.self) { idx in
-                        Capsule()
-                            .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.35))
-                            .frame(width: idx == currentIndex ? 24 : 8, height: 8)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
+                    // Page indicator dots at bottom right
+                    HStack(spacing: 8) {
+                        ForEach(0..<min(items.count, 6), id: \.self) { idx in
+                            Capsule()
+                                .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.35))
+                                .frame(width: idx == currentIndex ? 24 : 8, height: 8)
+                                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
+                        }
                     }
+                    .padding(.trailing, 60)
+                    .padding(.bottom, 36)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
-                .padding(.trailing, 60)
-                .padding(.bottom, 28)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+
+                // Apple TV Home button at top-left (scrolls off naturally with Hero!)
+                HomePillButton()
+                    .padding(.leading, 54)
+                    .padding(.top, 40)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 840)
@@ -274,8 +281,55 @@ struct HeroCarouselView: View {
                 .focused($isControlsFocused)
             }
             .padding(.horizontal, 60)
-            .padding(.bottom, 24)
+            .padding(.bottom, 36)
         }
+    }
+}
+
+// MARK: - Apple TV Top-Left Home Pill Button (Photo 1)
+
+struct HomePillButton: View {
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                SidebarState.shared.isOpen = true
+            }
+        } label: {
+            HStack(spacing: 8) {
+                // Chevron ‹
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white)
+
+                // Circle with house icon
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.20))
+                        .frame(width: 26, height: 26)
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.white)
+                }
+
+                // Text: Home
+                Text("Home")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.white)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 16)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(isFocused ? Color.white.opacity(0.25) : Color.black.opacity(0.45))
+            )
+            .scaleEffect(isFocused && !reduceMotion ? 1.05 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -375,10 +429,6 @@ struct LandscapeCWCard: View {
             }
             .frame(width: 380, height: 214)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white.opacity(0.35) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
-            )
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
         .contextMenu {
@@ -516,10 +566,6 @@ private struct Top10ItemView: View {
                 }
                 .frame(width: 200, height: 300)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(isFocused ? Color.white.opacity(0.35) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
-                )
 
                 // Title and Genre underneath matching Apple TV Photo 5
                 VStack(alignment: .leading, spacing: 2) {
@@ -675,10 +721,6 @@ private struct CuratedCardView: View {
             }
             .frame(width: 240, height: 360)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white.opacity(0.3) : Color.clear, lineWidth: isFocused ? 1.5 : 0)
-            )
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
         .onChange(of: isFocused) { focused in

@@ -463,12 +463,6 @@ private struct PosterCardLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             PosterArt(poster, width: width)
-                .overlay {
-                    if isFocused {
-                        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                            .strokeBorder(Color.white, lineWidth: 3.5)
-                    }
-                }
                 .overlay(alignment: .bottom) {
                     if let progress, progress > 0.01 {
                         ProgressStripe(value: progress).padding(Theme.Space.xs)

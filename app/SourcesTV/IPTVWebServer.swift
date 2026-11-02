@@ -155,13 +155,27 @@ public final class IPTVWebServer: ObservableObject {
                 "mdblistApiKey": s.mdblistApiKey,
                 "traktClientId": s.traktClientId,
                 "traktClientSecret": s.traktClientSecret,
-                "invidiousInstance": s.invidiousInstance
+                "invidiousInstance": s.invidiousInstance,
+                "matchContent": s.matchContent,
+                "bingeMode": s.bingeMode,
+                "backdropTrailers": s.backdropTrailers,
+                "subOffsetAuto": s.subOffsetAuto,
+                "quickGuideDrawer": s.quickGuideDrawer,
+                "appearanceMode": s.appearanceMode.rawValue,
+                "liquidGlass": s.liquidGlass,
+                "modularHomeRails": s.modularHomeRails,
+                "fullBleedBanners": s.fullBleedBanners,
+                "smartRecommendations": s.smartRecommendations,
+                "liveHorizontalCategories": s.liveHorizontalCategories,
+                "channelSortAscending": s.channelSortAscending,
+                "traktSync": s.traktSync,
+                "cloudHistorySync": s.cloudHistorySync
             ])
             return
         }
 
-        if method == "GET" && (path == "/" || path.hasPrefix("/?") || path.hasPrefix("/addons") || path.hasPrefix("/iptv") || path.hasPrefix("/services")) {
-            let initialTab = path.contains("addons") ? "addons" : (path.contains("services") ? "services" : "addons")
+        if method == "GET" && (path == "/" || path.hasPrefix("/?") || path.hasPrefix("/settings") || path.hasPrefix("/addons") || path.hasPrefix("/iptv") || path.hasPrefix("/services")) {
+            let initialTab = path.contains("settings") ? "settings" : (path.contains("iptv") ? "iptv" : (path.contains("services") ? "services" : "settings"))
             let html = self.renderHTMLPage(initialTab: initialTab)
             let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
             connection.send(content: Data(response.utf8), completion: .contentProcessed({ _ in
@@ -302,6 +316,20 @@ public final class IPTVWebServer: ObservableObject {
             let traktClientId: String?
             let traktClientSecret: String?
             let invidiousInstance: String?
+            let matchContent: Bool?
+            let bingeMode: Bool?
+            let backdropTrailers: Bool?
+            let subOffsetAuto: Bool?
+            let quickGuideDrawer: Bool?
+            let appearanceMode: String?
+            let liquidGlass: Bool?
+            let modularHomeRails: Bool?
+            let fullBleedBanners: Bool?
+            let smartRecommendations: Bool?
+            let liveHorizontalCategories: Bool?
+            let channelSortAscending: Bool?
+            let traktSync: Bool?
+            let cloudHistorySync: Bool?
         }
         guard let data = body.data(using: .utf8),
               let payload = try? JSONDecoder().decode(SettingsPayload.self, from: data) else {
@@ -319,7 +347,22 @@ public final class IPTVWebServer: ObservableObject {
                 let cleanInv = inv.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !cleanInv.isEmpty { settings.invidiousInstance = cleanInv }
             }
-            self.sendJSON(connection, status: 200, json: ["status": "ok", "message": "Settings saved successfully!"])
+            if let mc = payload.matchContent { settings.matchContent = mc }
+            if let bm = payload.bingeMode { settings.bingeMode = bm }
+            if let bt = payload.backdropTrailers { settings.backdropTrailers = bt }
+            if let so = payload.subOffsetAuto { settings.subOffsetAuto = so }
+            if let qg = payload.quickGuideDrawer { settings.quickGuideDrawer = qg }
+            if let am = payload.appearanceMode, let mode = AppSettings.AppearanceMode(rawValue: am) { settings.appearanceMode = mode }
+            if let lg = payload.liquidGlass { settings.liquidGlass = lg }
+            if let mr = payload.modularHomeRails { settings.modularHomeRails = mr }
+            if let fb = payload.fullBleedBanners { settings.fullBleedBanners = fb }
+            if let sr = payload.smartRecommendations { settings.smartRecommendations = sr }
+            if let lc = payload.liveHorizontalCategories { settings.liveHorizontalCategories = lc }
+            if let ca = payload.channelSortAscending { settings.channelSortAscending = ca }
+            if let ts = payload.traktSync { settings.traktSync = ts }
+            if let ch = payload.cloudHistorySync { settings.cloudHistorySync = ch }
+
+            self.sendJSON(connection, status: 200, json: ["status": "ok", "message": "Settings saved to Apple TV!"])
         }
     }
 
@@ -512,6 +555,47 @@ public final class IPTVWebServer: ObservableObject {
                     font-weight: 600;
                     cursor: pointer;
                 }
+                .switch {
+                    position: relative;
+                    display: inline-block;
+                    width: 48px;
+                    height: 28px;
+                    flex-shrink: 0;
+                }
+                .switch input { opacity: 0; width: 0; height: 0; }
+                .slider {
+                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                    background-color: rgba(255, 255, 255, 0.2);
+                    transition: .25s; border-radius: 28px;
+                }
+                .slider:before {
+                    position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px;
+                    background-color: white; transition: .25s; border-radius: 50%;
+                }
+                input:checked + .slider { background-color: #30D158; }
+                input:checked + .slider:before { transform: translateX(20px); }
+                .setting-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 13px 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                    gap: 12px;
+                }
+                .setting-row:last-child { border-bottom: none; }
+                .setting-info { flex: 1; }
+                .setting-title { font-size: 15px; font-weight: 600; color: #FFF; }
+                .setting-desc { font-size: 12px; color: rgba(255, 255, 255, 0.5); margin-top: 2px; line-height: 1.3; }
+                select.form-select {
+                    width: 100%;
+                    padding: 12px 14px;
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    border-radius: 10px;
+                    color: #FFF;
+                    font-size: 15px;
+                    outline: none;
+                }
                 .alert {
                     display: none;
                     padding: 12px;
@@ -536,14 +620,127 @@ public final class IPTVWebServer: ObservableObject {
         <body>
             <div class="container">
                 <div class="header">
-                    <div class="logo">Stremio<span>X</span></div>
+                    <div class="logo">Xtv<span>PRO</span></div>
                     <div class="subtitle">Apple TV Companion Portal</div>
                 </div>
 
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('addons')">🧩 Add-ons</button>
+                    <button class="tab-btn active" onclick="switchTab('settings')">⚙️ Settings</button>
+                    <button class="tab-btn" onclick="switchTab('services')">🔑 Keys</button>
+                    <button class="tab-btn" onclick="switchTab('addons')">🧩 Add-ons</button>
                     <button class="tab-btn" onclick="switchTab('iptv')">📺 IPTV</button>
-                    <button class="tab-btn" onclick="switchTab('services')">🔑 Integrations</button>
+                </div>
+
+                <!-- ALL SETTINGS TAB -->
+                <div id="tab-settings" class="tab-content active">
+                    <form id="appSettingsForm">
+                        <div class="card">
+                            <h3>🎬 Playback & Video</h3>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Match Dynamic Range & Frame Rate</div>
+                                    <div class="setting-desc">Switches HDMI output to 24p/SDR/HDR to match video source.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="matchContent"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Auto-Play Next Episode (Binge Mode)</div>
+                                    <div class="setting-desc">Seamlessly queues up the next episode when credits roll.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="bingeMode"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Inline Video Trailers</div>
+                                    <div class="setting-desc">Plays trailers inline on dwelling over hero & card items.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="backdropTrailers"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Automatic Subtitle Offset</div>
+                                    <div class="setting-desc">Automatically adjusts subtitle delay based on cloud timing.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="subOffsetAuto"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Quick Guide Drawer</div>
+                                    <div class="setting-desc">Shows live EPG channel drawer on swiping during Live TV.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="quickGuideDrawer"><span class="slider"></span></label>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>🎨 Appearance & Layout</h3>
+                            <div class="form-group" style="margin-bottom: 14px;">
+                                <label for="appearanceMode">Theme Mode</label>
+                                <select id="appearanceMode" class="form-select">
+                                    <option value="dark">Dark (Cinema)</option>
+                                    <option value="light">Light (Apple TV White)</option>
+                                    <option value="auto">Automatic (System)</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Liquid Glass Visuals</div>
+                                    <div class="setting-desc">Enables Apple TV frosted live blur materials (recommended for 4K).</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="liquidGlass"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Full-Bleed Banners (Top 10)</div>
+                                    <div class="setting-desc">Shows the ranked Top 10 carousel rail on the Home page.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="fullBleedBanners"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Smart Recommendations</div>
+                                    <div class="setting-desc">AI-powered recommendations based on your continue watching.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="smartRecommendations"><span class="slider"></span></label>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>📺 Live TV & Cloud Sync</h3>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Horizontal Live TV Categories</div>
+                                    <div class="setting-desc">Display categories as top horizontal tabs rather than vertical list.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="liveHorizontalCategories"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Channel Sort Ascending</div>
+                                    <div class="setting-desc">Sorts channels numerically and alphabetically A to Z.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="channelSortAscending"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Trakt.tv Scrobble Sync</div>
+                                    <div class="setting-desc">Automatically marks watched movies and episodes to Trakt.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="traktSync"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-title">Cloud History Sync</div>
+                                    <div class="setting-desc">Syncs watch progress across your Apple TVs via iCloud.</div>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="cloudHistorySync"><span class="slider"></span></label>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="saveAppSettingsBtn" class="primary-btn">Save Settings to Apple TV</button>
+                        <div id="appSettingsAlert" class="alert"></div>
+                    </form>
                 </div>
 
                 <!-- ADD-ONS TAB -->
@@ -625,14 +822,16 @@ public final class IPTVWebServer: ObservableObject {
 
             <script>
                 function switchTab(name) {
+                    const tabs = ['settings', 'services', 'addons', 'iptv'];
                     document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
-                        btn.classList.toggle('active', (name === 'addons' && idx === 0) || (name === 'iptv' && idx === 1) || (name === 'services' && idx === 2));
+                        btn.classList.toggle('active', tabs[idx] === name);
                     });
-                    document.getElementById('tab-addons').classList.toggle('active', name === 'addons');
-                    document.getElementById('tab-iptv').classList.toggle('active', name === 'iptv');
-                    document.getElementById('tab-services').classList.toggle('active', name === 'services');
+                    tabs.forEach(t => {
+                        const el = document.getElementById('tab-' + t);
+                        if (el) el.classList.toggle('active', t === name);
+                    });
                     if (name === 'addons') loadAddons();
-                    if (name === 'services') loadSettings();
+                    if (name === 'services' || name === 'settings') loadSettings();
                 }
 
                 function showAlert(elId, text, isError) {
@@ -760,13 +959,72 @@ public final class IPTVWebServer: ObservableObject {
                     try {
                         const res = await fetch('/api/settings');
                         const data = await res.json();
-                        if (data.tmdbApiKey) document.getElementById('tmdbKey').value = data.tmdbApiKey;
-                        if (data.mdblistApiKey) document.getElementById('mdblistKey').value = data.mdblistApiKey;
-                        if (data.traktClientId) document.getElementById('traktClientId').value = data.traktClientId;
-                        if (data.traktClientSecret) document.getElementById('traktClientSecret').value = data.traktClientSecret;
-                        if (data.invidiousInstance) document.getElementById('invidiousInstance').value = data.invidiousInstance;
+                        // Text inputs
+                        if (data.tmdbApiKey !== undefined) document.getElementById('tmdbKey').value = data.tmdbApiKey;
+                        if (data.mdblistApiKey !== undefined) document.getElementById('mdblistKey').value = data.mdblistApiKey;
+                        if (data.traktClientId !== undefined) document.getElementById('traktClientId').value = data.traktClientId;
+                        if (data.traktClientSecret !== undefined) document.getElementById('traktClientSecret').value = data.traktClientSecret;
+                        if (data.invidiousInstance !== undefined) document.getElementById('invidiousInstance').value = data.invidiousInstance;
+
+                        // Checkboxes & Selects
+                        const bools = [
+                            'matchContent', 'bingeMode', 'backdropTrailers', 'subOffsetAuto',
+                            'quickGuideDrawer', 'liquidGlass', 'fullBleedBanners', 'smartRecommendations',
+                            'liveHorizontalCategories', 'channelSortAscending', 'traktSync', 'cloudHistorySync'
+                        ];
+                        bools.forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el && data[id] !== undefined) el.checked = !!data[id];
+                        });
+                        if (data.appearanceMode) {
+                            const sel = document.getElementById('appearanceMode');
+                            if (sel) sel.value = data.appearanceMode;
+                        }
                     } catch (e) {}
                 }
+
+                // App Settings Form submit
+                document.getElementById('appSettingsForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById('saveAppSettingsBtn');
+                    btn.disabled = true;
+                    btn.innerText = 'Saving…';
+                    hideAlert('appSettingsAlert');
+
+                    const payload = {
+                        matchContent: document.getElementById('matchContent').checked,
+                        bingeMode: document.getElementById('bingeMode').checked,
+                        backdropTrailers: document.getElementById('backdropTrailers').checked,
+                        subOffsetAuto: document.getElementById('subOffsetAuto').checked,
+                        quickGuideDrawer: document.getElementById('quickGuideDrawer').checked,
+                        appearanceMode: document.getElementById('appearanceMode').value,
+                        liquidGlass: document.getElementById('liquidGlass').checked,
+                        fullBleedBanners: document.getElementById('fullBleedBanners').checked,
+                        smartRecommendations: document.getElementById('smartRecommendations').checked,
+                        liveHorizontalCategories: document.getElementById('liveHorizontalCategories').checked,
+                        channelSortAscending: document.getElementById('channelSortAscending').checked,
+                        traktSync: document.getElementById('traktSync').checked,
+                        cloudHistorySync: document.getElementById('cloudHistorySync').checked
+                    };
+
+                    try {
+                        const res = await fetch('/api/settings/save', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (res.ok) {
+                            showAlert('appSettingsAlert', 'Settings saved to Apple TV!', false);
+                        } else {
+                            throw new Error('Failed to save settings');
+                        }
+                    } catch (err) {
+                        showAlert('appSettingsAlert', err.message, true);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerText = 'Save Settings to Apple TV';
+                    }
+                });
 
                 document.getElementById('settingsForm').addEventListener('submit', async (e) => {
                     e.preventDefault();
@@ -790,9 +1048,9 @@ public final class IPTVWebServer: ObservableObject {
                             body: JSON.stringify(payload)
                         });
                         if (res.ok) {
-                            showAlert('settingsAlert', 'Settings saved to Apple TV!', false);
+                            showAlert('settingsAlert', 'Keys saved to Apple TV!', false);
                         } else {
-                            throw new Error('Failed to save settings');
+                            throw new Error('Failed to save keys');
                         }
                     } catch (err) {
                         showAlert('settingsAlert', err.message, true);
