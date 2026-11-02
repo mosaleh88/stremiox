@@ -25,6 +25,7 @@ struct WhitePillButtonStyle: ButtonStyle {
                 .scaleEffect(isFocused && !reduceMotion ? 1.08 : (configuration.isPressed ? 0.96 : 1.0))
                 .shadow(color: isFocused ? Color.black.opacity(0.6) : Color.clear, radius: 18, y: 8)
                 .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: isFocused)
+                .focusEffectDisabled()
         }
     }
 }
@@ -55,6 +56,7 @@ struct CircleGlassButtonStyle: ButtonStyle {
                 .scaleEffect(isFocused && !reduceMotion ? 1.15 : (configuration.isPressed ? 0.94 : 1.0))
                 .shadow(color: isFocused ? Color.black.opacity(0.6) : Color.clear, radius: 14, y: 7)
                 .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: isFocused)
+                .focusEffectDisabled()
         }
     }
 }
@@ -86,40 +88,52 @@ struct HeroCarouselView: View {
 
     private let timer = Timer.publish(every: 7.0, on: .main, in: .common).autoconnect()
 
+    private var currentItem: HeroCarouselItem? {
+        guard !items.isEmpty else { return nil }
+        let idx = min(max(0, currentIndex), items.count - 1)
+        return items[idx]
+    }
+
     var body: some View {
         if items.isEmpty {
             EmptyView()
         } else {
-            ZStack(alignment: .topLeading) {
-                ZStack(alignment: .bottomLeading) {
-                    TabView(selection: $currentIndex) {
-                        ForEach(Array(items.prefix(6).enumerated()), id: \.element.id) { index, item in
-                            heroCarouselSlide(item)
-                                .tag(index)
-                        }
+            ZStack(alignment: .bottomLeading) {
+                // Background Carousel: Backdrops ONLY in TabView to eliminate button replication & focus glitch
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(items.prefix(6).enumerated()), id: \.element.id) { index, item in
+                        heroBackdropSlide(item)
+                            .tag(index)
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .frame(height: 840)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 840)
 
-                    // Page indicator dots at bottom right
-                    HStack(spacing: 10) {
-                        ForEach(0..<min(items.count, 6), id: \.self) { idx in
-                            Capsule()
-                                .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.45))
-                                .frame(width: idx == currentIndex ? 28 : 10, height: 10)
-                                .shadow(color: Color.black.opacity(0.6), radius: 4, x: 0, y: 1)
-                                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
-                        }
-                    }
-                    .padding(.trailing, 80)
-                    .padding(.bottom, 112)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                // Single unified Foreground Info & Action Controls
+                // Buttons are persistent and outside the TabView, so they never glitch or duplicate on page switch!
+                if let item = currentItem {
+                    heroInfoOverlay(item)
                 }
 
                 // Apple TV Home button at top-left (scrolls off naturally with Hero!)
-                HomePillButton()
+                NavigationPillButton(title: "Home")
                     .padding(.leading, 64)
                     .padding(.top, 48)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                // Page indicator dots at bottom right
+                HStack(spacing: 10) {
+                    ForEach(0..<min(items.count, 6), id: \.self) { idx in
+                        Capsule()
+                            .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.45))
+                            .frame(width: idx == currentIndex ? 28 : 10, height: 10)
+                            .shadow(color: Color.black.opacity(0.6), radius: 4, x: 0, y: 1)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
+                    }
+                }
+                .padding(.trailing, 80)
+                .padding(.bottom, 140)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 840)
@@ -132,7 +146,7 @@ struct HeroCarouselView: View {
         }
     }
 
-    private func heroCarouselSlide(_ item: HeroCarouselItem) -> some View {
+    private func heroBackdropSlide(_ item: HeroCarouselItem) -> some View {
         ZStack(alignment: .bottomLeading) {
             // Full-bleed 16:9 Backdrop
             if let url = item.backdropURL {
@@ -168,156 +182,140 @@ struct HeroCarouselView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
+        }
+    }
 
-            // Left-aligned stacked Hero Info Block (raised to respect tvOS safe area)
-            VStack(alignment: .leading, spacing: 10) {
-                // Capsule Badge
-                Text(item.type == "series" ? "SERIES" : "FEATURED")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.95))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
+    private func heroInfoOverlay(_ item: HeroCarouselItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Capsule Badge
+            Text(item.type == "series" ? "SERIES" : "FEATURED")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.95))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
+                .id("badge-\(item.id)")
+                .transition(.opacity)
 
-                // Large Editorial Title Text (bold sans-serif matching Apple TV look)
-                Text(item.title)
-                    .font(.system(size: 54, weight: .heavy, design: .default))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .shadow(color: .black.opacity(0.7), radius: 6, x: 0, y: 2)
+            // Large Editorial Title Text (bold sans-serif matching Apple TV look)
+            Text(item.title)
+                .font(.system(size: 54, weight: .heavy, design: .default))
+                .foregroundStyle(Color.white)
+                .lineLimit(1)
+                .shadow(color: .black.opacity(0.7), radius: 6, x: 0, y: 2)
+                .id("title-\(item.id)")
+                .transition(.opacity)
 
-                // Metadata Line (type, release year, rating, genres)
-                HStack(spacing: 8) {
-                    Text(item.type.capitalized)
+            // Metadata Line (type, release year, rating, genres)
+            HStack(spacing: 8) {
+                Text(item.type.capitalized)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.textSecondary)
+
+                if let year = item.releaseYear {
+                    Text("•").foregroundStyle(Theme.Palette.textTertiary)
+                    Text(year)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
+                }
 
-                    if let year = item.releaseYear {
-                        Text("•").foregroundStyle(Theme.Palette.textTertiary)
-                        Text(year)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                    }
-
-                    if let rating = item.rating {
-                        Text("•").foregroundStyle(Theme.Palette.textTertiary)
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.white.opacity(0.85))
-                            Text(rating)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(Theme.Palette.textPrimary)
-                        }
-                    }
-
-                    if !item.genres.isEmpty {
-                        Text("•").foregroundStyle(Theme.Palette.textTertiary)
-                        Text(item.genres.prefix(2).joined(separator: ", "))
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.Palette.textSecondary)
+                if let rating = item.rating {
+                    Text("•").foregroundStyle(Theme.Palette.textTertiary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                        Text(rating)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Theme.Palette.textPrimary)
                     }
                 }
 
-                // 2-line Description
-                if let overview = item.overview, !overview.isEmpty {
-                    Text(overview)
-                        .font(.system(size: 16, weight: .regular))
+                if !item.genres.isEmpty {
+                    Text("•").foregroundStyle(Theme.Palette.textTertiary)
+                    Text(item.genres.prefix(2).joined(separator: ", "))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
-                        .lineLimit(2)
-                        .lineSpacing(3)
-                        .frame(maxWidth: 820, alignment: .leading)
                 }
+            }
+            .id("meta-\(item.id)")
+            .transition(.opacity)
 
-                // Action Buttons: White Pill Play button + small circular buttons
-                HStack(spacing: Theme.Space.md) {
-                    // White Pill: Play
-                    NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
-                        Label("Play", systemImage: "play.fill")
-                    }
-                    .buttonStyle(WhitePillButtonStyle())
+            // 2-line Description
+            if let overview = item.overview, !overview.isEmpty {
+                Text(overview)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .lineLimit(2)
+                    .lineSpacing(3)
+                    .frame(maxWidth: 820, alignment: .leading)
+                    .id("overview-\(item.id)")
+                    .transition(.opacity)
+            }
 
-                    // Circular button: + (Add to Library)
-                    Button {
-                        CoreBridge.shared.addToLibrary(metaId: item.id)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .bold))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(CircleGlassButtonStyle())
+            // Action Buttons: Mounted ONCE, dynamically bound to `item` without flickering or glitching
+            HStack(spacing: Theme.Space.md) {
+                // White Pill: Play
+                NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
+                    Label("Play", systemImage: "play.fill")
+                }
+                .buttonStyle(WhitePillButtonStyle())
+                .focusEffectDisabled()
 
-                    // Circular button: i (Info / Details)
-                    NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
-                        Image(systemName: "info")
-                            .font(.system(size: 18, weight: .bold))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(CircleGlassButtonStyle())
+                // Circular button: + (Add to Library)
+                Button {
+                    CoreBridge.shared.addToLibrary(metaId: item.id)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(CircleGlassButtonStyle())
+                .focusEffectDisabled()
 
-                    // Circular button: Trailer
-                    Button {
-                        Task {
-                            if let trailer = await MetadataService.shared.resolveTrailer(for: item.id) {
-                                await MainActor.run {
-                                    presenter.request = PlaybackRequest(
-                                        url: trailer.videoURL,
-                                        title: "\(item.title) — Trailer",
-                                        audioURL: trailer.audioURL
-                                    )
-                                }
+                // Circular button: i (Info / Details)
+                NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
+                    Image(systemName: "info")
+                        .font(.system(size: 18, weight: .bold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(CircleGlassButtonStyle())
+                .focusEffectDisabled()
+
+                // Circular button: Trailer
+                Button {
+                    Task {
+                        if let trailer = await MetadataService.shared.resolveTrailer(for: item.id) {
+                            await MainActor.run {
+                                presenter.request = PlaybackRequest(
+                                    url: trailer.videoURL,
+                                    title: "\(item.title) — Trailer",
+                                    audioURL: trailer.audioURL
+                                )
                             }
                         }
-                    } label: {
-                        Image(systemName: "play.rectangle.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .frame(width: 44, height: 44)
                     }
-                    .buttonStyle(CircleGlassButtonStyle())
+                } label: {
+                    Image(systemName: "play.rectangle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .frame(width: 44, height: 44)
                 }
-                .padding(.top, 6)
-                .focused($isControlsFocused)
+                .buttonStyle(CircleGlassButtonStyle())
+                .focusEffectDisabled()
             }
-            .padding(.horizontal, 64)
-            .padding(.bottom, 110)
+            .padding(.top, 6)
+            .focused($isControlsFocused)
         }
+        .padding(.horizontal, 64)
+        .padding(.bottom, 140)
+        .animation(.easeInOut(duration: 0.4), value: item.id)
     }
 }
 
-// MARK: - Apple TV Top-Left Home Pill Button (Photo 1)
-
+// MARK: - Backward-compatible HomePillButton
 struct HomePillButton: View {
-    @Environment(\.isFocused) private var isFocused
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                SidebarState.shared.isOpen = true
-            }
-        } label: {
-            HStack(spacing: 7) {
-                // Back chevron
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.85))
-
-                // Single clean label: Home
-                Text("Home")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.95))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.45))
-            )
-            .scaleEffect(isFocused && !reduceMotion ? 1.10 : 1.0)
-            .shadow(color: isFocused ? Color.black.opacity(0.7) : Color.clear, radius: 14, y: 6)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
-        }
-        .buttonStyle(.plain)
+        NavigationPillButton(title: "Home")
     }
 }
 
@@ -419,6 +417,7 @@ struct LandscapeCWCard: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
+        .focusEffectDisabled()
         .contextMenu {
             if let onDetails {
                 Button(action: onDetails) {
@@ -506,6 +505,7 @@ struct FullBleedBannerRail: View {
             Top10ItemView(item: item)
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
+        .focusEffectDisabled()
     }
 }
 
@@ -711,6 +711,7 @@ private struct CuratedCardView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
+        .focusEffectDisabled()
         .onChange(of: isFocused) { focused in
             dwellTask?.cancel()
             if focused && !reduceMotion && AppSettings.shared.backdropTrailers {

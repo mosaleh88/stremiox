@@ -39,6 +39,9 @@ struct AddonsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                    #if os(tvOS)
+                    NavigationPillButton(title: "Add-ons")
+                    #endif
                     HStack(alignment: .firstTextBaseline) {
                         Text("Add-ons").screenTitleStyle()
                         Spacer()

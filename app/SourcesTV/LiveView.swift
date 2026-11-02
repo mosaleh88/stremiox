@@ -164,6 +164,7 @@ struct LiveView: View {
 
     private var topNavigationHeader: some View {
         HStack(alignment: .center, spacing: Theme.Space.lg) {
+            NavigationPillButton(title: "Live TV")
             Text("Live TV").screenTitleStyle()
 
             Spacer()

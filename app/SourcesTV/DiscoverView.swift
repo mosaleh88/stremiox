@@ -17,6 +17,9 @@ struct DiscoverView: View {
                 BrowseHeroBackdrop(model: focusModel, detailsBottom: 520)
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Space.md) {
+                        NavigationPillButton(title: "Discover")
+                            .padding(.horizontal, Theme.Space.screenEdge)
+                            .padding(.top, Theme.Space.md)
                         Text("Discover").screenTitleStyle().padding(.horizontal, Theme.Space.screenEdge)
                         if let discover = core.discover {
                             typeChips(discover.selectable.types)

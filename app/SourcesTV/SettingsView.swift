@@ -85,6 +85,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                    NavigationPillButton(title: "Settings")
                     Text("Settings").screenTitleStyle()
 
                     // Quick Jump Category Navigation Bar

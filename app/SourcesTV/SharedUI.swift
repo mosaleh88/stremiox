@@ -8,6 +8,57 @@ import AVKit
 /// Standard poster width across the app. Posters are 2:3, so height is `width * 1.5`.
 let kPosterWidth: CGFloat = 200
 
+// MARK: - Apple TV Navigation Pill Button
+
+struct NavigationPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        NavigationPillLabel(configuration: configuration)
+    }
+
+    private struct NavigationPillLabel: View {
+        let configuration: Configuration
+        @Environment(\.isFocused) private var isFocused
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(isFocused ? 0.60 : 0.40))
+                )
+                .scaleEffect(isFocused && !reduceMotion ? 1.08 : (configuration.isPressed ? 0.96 : 1.0))
+                .shadow(color: isFocused ? Color.black.opacity(0.7) : Color.clear, radius: 14, y: 6)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
+                .focusEffectDisabled()
+        }
+    }
+}
+
+struct NavigationPillButton: View {
+    var title: String = "Home"
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                SidebarState.shared.isOpen = true
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.95))
+            }
+        }
+        .buttonStyle(NavigationPillButtonStyle())
+        .focusEffectDisabled()
+    }
+}
+
 /// In-memory poster cache, on top of the shared URLCache (disk). Decoded images, evicted under memory
 /// pressure. Keyed by URL so a poster shown in several rails decodes once.
 private let posterMemoryCache: NSCache<NSURL, UIImage> = {
@@ -507,9 +558,11 @@ struct PosterCard: View {
         if let directPlay {
             Button(action: directPlay) { cardLabel }
                 .buttonStyle(CardFocusStyle())
+                .focusEffectDisabled()
         } else {
             NavigationLink { DetailView(type: type, id: id) } label: { cardLabel }
                 .buttonStyle(CardFocusStyle())
+                .focusEffectDisabled()
         }
     }
 

@@ -153,6 +153,8 @@ private struct CardFocusContent: View {
             .animation(Theme.Motion.state, value: configuration.isPressed)
         #if os(macOS)
         return label.onHover { isHovered = $0 }
+        #elseif os(tvOS)
+        return label.focusEffectDisabled()
         #else
         return label
         #endif
@@ -192,6 +194,8 @@ private struct PrimaryActionContent: View {
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
         #if os(macOS)
         return label.onHover { isHovered = $0 }
+        #elseif os(tvOS)
+        return label.focusEffectDisabled()
         #else
         return label
         #endif
@@ -233,6 +237,8 @@ private struct RowFocusContent: View {
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
         #if os(macOS)
         return label.onHover { isHovered = $0 }
+        #elseif os(tvOS)
+        return label.focusEffectDisabled()
         #else
         return label
         #endif
