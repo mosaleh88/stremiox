@@ -98,7 +98,7 @@ struct HeroCarouselView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 780)
+                .frame(height: 840)
 
                 // Page indicator dots at bottom right
                 HStack(spacing: 8) {
@@ -110,11 +110,11 @@ struct HeroCarouselView: View {
                     }
                 }
                 .padding(.trailing, 60)
-                .padding(.bottom, 48)
+                .padding(.bottom, 28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 780)
+            .frame(height: 840)
             .onReceive(timer) { _ in
                 guard !reduceMotion && !isControlsFocused else { return }
                 withAnimation(.easeInOut(duration: 0.6)) {
@@ -162,9 +162,7 @@ struct HeroCarouselView: View {
             )
 
             // Left-aligned stacked Hero Info Block
-            VStack(alignment: .leading, spacing: 10) {
-                Spacer().frame(minHeight: 120, maxHeight: 220)
-
+            VStack(alignment: .leading, spacing: 8) {
                 // Capsule Badge
                 Text(item.type == "series" ? "SERIES" : "FEATURED")
                     .font(.system(size: 13, weight: .bold))
@@ -175,7 +173,7 @@ struct HeroCarouselView: View {
 
                 // Large Editorial Title Text
                 Text(item.title)
-                    .font(.system(size: 58, weight: .black, design: .serif))
+                    .font(.system(size: 50, weight: .black, design: .serif))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .shadow(color: .black.opacity(0.85), radius: 8, x: 0, y: 3)
@@ -219,9 +217,10 @@ struct HeroCarouselView: View {
                 // 2-line Description
                 if let overview = item.overview, !overview.isEmpty {
                     Text(overview)
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.system(size: 16, weight: .regular))
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .lineLimit(2)
+                        .lineSpacing(3)
                         .frame(maxWidth: 820, alignment: .leading)
                 }
 
@@ -239,7 +238,7 @@ struct HeroCarouselView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 18, weight: .bold))
-                            .frame(width: 48, height: 48)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(CircleGlassButtonStyle())
 
@@ -247,7 +246,7 @@ struct HeroCarouselView: View {
                     NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
                         Image(systemName: "info")
                             .font(.system(size: 18, weight: .bold))
-                            .frame(width: 48, height: 48)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(CircleGlassButtonStyle())
 
@@ -267,15 +266,15 @@ struct HeroCarouselView: View {
                     } label: {
                         Image(systemName: "play.rectangle.fill")
                             .font(.system(size: 18, weight: .bold))
-                            .frame(width: 48, height: 48)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(CircleGlassButtonStyle())
                 }
-                .padding(.top, 6)
+                .padding(.top, 4)
                 .focused($isControlsFocused)
             }
             .padding(.horizontal, 60)
-            .padding(.bottom, 48)
+            .padding(.bottom, 24)
         }
     }
 }

@@ -149,7 +149,6 @@ private struct CardFocusContent: View {
         let label = configuration.label
             .scaleEffect(lifted ? scale : (configuration.isPressed ? 0.97 : 1))
             .shadow(color: lifted ? Color.black.opacity(0.8) : Color.clear, radius: 24, x: 0, y: 14)
-            .shadow(color: lifted ? Theme.Palette.accent.opacity(0.35) : Color.clear, radius: 14, x: 0, y: 0)
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
             .animation(Theme.Motion.state, value: configuration.isPressed)
         #if os(macOS)

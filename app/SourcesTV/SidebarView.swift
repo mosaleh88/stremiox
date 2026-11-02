@@ -162,89 +162,73 @@ private struct SidebarItemButton: View {
     let isSelected: Bool
     @FocusState.Binding var focusedItem: TabItem?
     let onSelect: () -> Void
-    @Environment(\.isFocused) private var isFocused
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 16) {
-                // Circular icon
-                ZStack {
-                    Circle()
-                        .fill(iconBackgroundColor)
-                        .frame(width: 42, height: 42)
-                    Image(systemName: tab.systemImage)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(iconForegroundColor)
-                }
-
-                // Label
-                Text(tab.title)
-                    .font(.system(size: 20, weight: isFocused ? .bold : (isSelected ? .semibold : .medium)))
-                    .foregroundStyle(labelForegroundColor)
-
-                Spacer()
-
-                if isSelected && !isFocused {
-                    Circle()
-                        .fill(Color.white.opacity(0.8))
-                        .frame(width: 6, height: 6)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(backgroundView)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .scaleEffect(isFocused ? 1.02 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
+            SidebarItemButtonBody(tab: tab, isSelected: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SidebarItemButtonStyle())
         .focused($focusedItem, equals: tab)
     }
+}
 
-    @ViewBuilder
-    private var backgroundView: some View {
-        if isFocused {
-            // Focused item: solid white
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.35), radius: 10, y: 4)
-        } else if isSelected {
-            // Selected item: soft light highlight
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.12))
-        } else {
-            Color.clear
-        }
+private struct SidebarItemButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
     }
+}
 
-    private var labelForegroundColor: Color {
-        if isFocused {
-            return Color.black
-        } else if isSelected {
-            return Color.white
-        } else {
-            return Color.white.opacity(0.72)
-        }
-    }
+private struct SidebarItemButtonBody: View {
+    let tab: TabItem
+    let isSelected: Bool
+    @Environment(\.isFocused) private var isFocused
 
-    private var iconBackgroundColor: Color {
-        if isFocused {
-            return Color.black.opacity(0.12)
-        } else if isSelected {
-            return Color.white.opacity(0.20)
-        } else {
-            return Color.white.opacity(0.10)
-        }
-    }
+    var body: some View {
+        HStack(spacing: 16) {
+            // Circular icon
+            ZStack {
+                Circle()
+                    .fill(isFocused ? Color.black.opacity(0.12) : (isSelected ? Color.white.opacity(0.20) : Color.white.opacity(0.10)))
+                    .frame(width: 42, height: 42)
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(isFocused ? Color.black : (isSelected ? Color.white : Color.white.opacity(0.85)))
+            }
 
-    private var iconForegroundColor: Color {
-        if isFocused {
-            return Color.black
-        } else if isSelected {
-            return Color.white
-        } else {
-            return Color.white.opacity(0.85)
+            // Label
+            Text(tab.title)
+                .font(.system(size: 20, weight: isFocused ? .bold : (isSelected ? .semibold : .medium)))
+                .foregroundStyle(isFocused ? Color.black : (isSelected ? Color.white : Color.white.opacity(0.72)))
+
+            Spacer()
+
+            if isSelected && !isFocused {
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 6, height: 6)
+            }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(
+            Group {
+                if isFocused {
+                    // Focused item: solid white pill with shadow
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.35), radius: 10, y: 4)
+                } else if isSelected {
+                    // Selected item: soft light highlight
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.12))
+                } else {
+                    Color.clear
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .scaleEffect(isFocused ? 1.02 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
     }
 }
 

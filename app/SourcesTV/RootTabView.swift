@@ -202,29 +202,29 @@ struct RootTabView: View {
 
     private var homePill: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
                 isSidebarOpen = true
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 15, weight: .bold))
                 Text(selectedTab.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(isHomePillFocused ? Color.black : Color.white)
             .padding(.horizontal, 16)
-            .padding(.vertical, 9)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isHomePillFocused ? Color.white : Color(red: 0.12, green: 0.11, blue: 0.10).opacity(0.85))
+                    .fill(isHomePillFocused ? Color.white : Color.black.opacity(0.65))
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(isHomePillFocused ? Color.clear : Color.white.opacity(0.18), lineWidth: 1)
+                    .strokeBorder(isHomePillFocused ? Color.white : Color.white.opacity(0.35), lineWidth: 1.5)
             )
-            .scaleEffect(isHomePillFocused ? 1.06 : 1.0)
-            .shadow(color: isHomePillFocused ? Color.black.opacity(0.5) : Color.clear, radius: 10, y: 4)
+            .scaleEffect(isHomePillFocused ? 1.08 : 1.0)
+            .shadow(color: isHomePillFocused ? Color.black.opacity(0.55) : Color.clear, radius: 12, y: 5)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHomePillFocused)
         }
         .buttonStyle(.plain)
