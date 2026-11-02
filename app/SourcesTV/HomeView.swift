@@ -117,25 +117,27 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                // If Hero Carousel mode is enabled, it takes the top stage; otherwise use living backdrop
-                if !appSettings.heroCarousel {
+            ZStack(alignment: .top) {
+                // Cheap living backdrop for catalog items when hero is scrolled past
+                if heroCarouselItems.isEmpty {
                     BrowseHeroBackdrop(model: focusModel, detailsBottom: 520)
                 }
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: Theme.Space.lg) {
-                        if appSettings.heroCarousel && !heroCarouselItems.isEmpty {
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: Theme.Space.xl) {
+                        // Full-bleed Hero Carousel
+                        if !heroCarouselItems.isEmpty {
                             HeroCarouselView(items: heroCarouselItems)
-                                .padding(.bottom, Theme.Space.sm)
+                                .ignoresSafeArea(.container, edges: .top)
+                        }
+
+                        // Continue Watching Row (Rounded Landscape Cards)
+                        if !continueWatching.isEmpty {
+                            CoreContinueWatchingRow(items: continueWatching, focusModel: focusModel)
                         }
 
                         if appSettings.fullBleedBanners && !bannerItems.isEmpty {
                             FullBleedBannerRail(title: "Top 10 Today", items: bannerItems)
-                        }
-
-                        if !continueWatching.isEmpty {
-                            CoreContinueWatchingRow(items: continueWatching, focusModel: focusModel)
                         }
 
                         if !curatedItems.isEmpty {
@@ -162,10 +164,8 @@ struct HomeView: View {
                             if account.isSignedIn { LoadingRail() } else { CoreEmptyState.signedOut }
                         }
                     }
-                    .padding(.top, Theme.Space.sm)
-                    .padding(.bottom, Theme.Space.xl)
+                    .padding(.bottom, Theme.Space.xxl)
                 }
-                .modifier(HomeScrollModifier(heroCarousel: appSettings.heroCarousel))
             }
             .background(Theme.Palette.canvas.ignoresSafeArea())
         }

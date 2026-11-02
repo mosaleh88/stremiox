@@ -57,6 +57,11 @@ enum HDRDisplayMode {
     /// Ask tvOS to switch the display into the mode matching the content.
     @MainActor
     static func request(_ range: ContentDynamicRange, fps: Double, width: Int, height: Int, in window: UIWindow?) {
+        // Apple TV HD (A8) supports 1080p SDR output only: skip HDMI dynamic range mode-switching
+        if PerformanceMode.reduced {
+            note("display switch skipped: Apple TV HD / PerformanceMode.reduced (1080p SDR only)")
+            return
+        }
         installModeSwitchObservers()
         guard let window = window ?? fallbackWindow else {
             note("display switch skipped: no window")

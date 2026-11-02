@@ -1,10 +1,24 @@
-# Design
+# Design (Xtv)
 
-The visual system for StremioX. The tvOS app is the reference implementation; the iOS native client inherits these tokens. Values are expressed as OKLCH intent plus the sRGB the SwiftUI tokens ship (iOS 16 has no native OKLCH). Tokens live in `app/SourcesTV/Theme.swift`.
+The visual system for Xtv on tvOS, redesigned to look and feel like the Apple TV app on tvOS 26 while running smoothly on Apple TV HD (4th generation, A8 chip, 2 GB RAM, 1080p SDR output).
 
 ## Theme
 
-Dark, warm. One theme only (the living-room scene forces it). The canvas is a deep warm near-black so poster art is the only saturated thing on screen. Elevation is expressed by stepping lightness up on warm-tinted surfaces and by soft shadow, never by borders or glassy blur.
+Dark, warm, and cinematic. The canvas is a deep warm near-black (`#15120E`) so poster art is the only saturated element on screen. Elevation is expressed by stepping lightness up on warm-tinted surfaces and by focused card lift, never by live translucent blur stacks on constrained hardware.
+
+## Apple TV HD (A8) Hardware Optimization Rules
+
+- **Zero Liquid Glass / Live Blur on HD:** Liquid Glass APIs (`.ultraThinMaterial`, `liquidGlassBackground`) are guarded and fall back to solid dark fills (`Theme.Palette.surface1` @ 96%).
+- **SDR Output (No HDR / DV switching):** Apple TV HD is strictly 1080p SDR. HDMI dynamic range mode-switching (`HDRDisplayMode.request`) is bypassed when `PerformanceMode.reduced` is true.
+- **Demuxer Read-Ahead Buffer:** Reduced from 512 MiB to 128 MiB (remote CDN/debrid) and 48 MiB (local torrent) to prevent jetsam OOM kills on 2 GB RAM.
+- **Asynchronous Artwork Downsampling:** Remote poster artwork is loaded and downsampled off the main thread to 1080p display sizes (2x pixel density max) with an in-memory `NSCache` limit.
+- **Focused-Only Shadows:** Inactive/resting cards have 0 drop shadow and 0 border strokes; only the single focused card receives the 1.08x scale, drop shadow, and theme accent glow.
+- **Single Shared Hero Trailer Player:** A single shared AVPlayer instance handles backdrop trailers with a 1.8s dwell delay, capped at 720p SDR with a 4.0s forward buffer, tearing down immediately on navigation, backgrounding, or memory warning.
+
+## Navigation & Sidebar (Apple TV 26 Style)
+
+- **Left Sidebar:** Native left sidebar panel (`SidebarView`) with user profile avatar, username, and live 1s clock at top. Items show circular icons and labels (Search, Home, Discover, Live TV, Library, Add-ons, Settings). Solid dark semi-opaque fill (`#15120E` @ 96%) without live blurs.
+- **Top-left Home Navigation:** Small translucent "Home" / tab pill with back chevron (`< Home`) at the top-left of the viewport. Siri Remote Menu button (`.onExitCommand`) cleanly pops back to the sidebar and Home.
 
 ## Color
 
@@ -31,13 +45,13 @@ Accent (ember / warm coral, hue ~38):
 | `accentBright` | 78% 0.15 45 | `#FF9163` | Focus glow highlight |
 | `accentSoft` | accent @ 18% alpha | rgba | Selected-chip fill, glow base |
 
-Semantic: destructive uses the system red (kept distinct from the warm accent). Success and warning are not introduced until a screen needs them; add to this table when they do.
+Semantic: destructive uses the system red (`#DE4856`).
 
 ## Typography
 
 Two families, both system (no bundled fonts, zero load risk):
 
-- **Display (editorial moments only)**: SF Pro Rounded is avoided; use the system serif **New York** (`Font.system(..., design: .serif)`) at heavy/bold for the wordmark and the detail-page hero title. This is the editorial-cinema signature.
+- **Display (editorial moments only)**: SF Pro Rounded is avoided; use the system serif **New York** (`Font.system(..., design: .serif)`) at heavy/bold for the wordmark and the detail-page hero title.
 - **UI (everything else)**: **SF Pro** (`design: .default`). Carries section headers, card titles, body, labels, data.
 
 Scale (tvOS, fixed, ratio ~1.25), defined as `Theme.Font` helpers:
@@ -53,33 +67,23 @@ Scale (tvOS, fixed, ratio ~1.25), defined as `Theme.Font` helpers:
 | `label` | 20 medium | sans |
 | `eyebrow` | 15 bold, tracking +1.5, uppercase | sans |
 
-Prose blocks (synopsis) cap around 70 characters per line.
-
-## Spacing
-
-8pt base. Scale: `xs 8, sm 12, md 20, lg 32, xl 48, xxl 72`. Rhythm is intentional, not uniform: section gaps use `xl`, in-card gaps use `sm`. tvOS safe-area inset for screen edges is `60`.
-
 ## Radius & Elevation
 
-- Radius: `card 16`, `chip 12`, `control 14`, `pill 999`.
-- Shadow: resting cards have a soft low shadow (y 8, blur 24, black 35%). Focused cards lift to (y 18, blur 44, black 50%) plus an ember glow.
-- No borders for elevation. A single `hairline` separator is allowed for true dividers only.
+- Radius: `card 20`, `heroCard 36`, `chip 14`, `control 14`.
+- Elevation: Active focused card lifts to (y 14, blur 24, black 80%) plus accent glow. Resting cards have zero shadow on HD.
+- Specular rim highlight border (`Color.white`, width 3.5) renders strictly on focus.
 
-## Components
+## Components & Rails
 
-- **PosterCard**: rounded `card` radius, resting shadow, title below in `cardTitle`. On focus: scale 1.08, lift, ember glow, title brightens to `textPrimary`. Watched state: 55% opacity plus a check badge.
-- **Chip / filter**: `surface2` fill, `chip` radius, `label` text in `textSecondary`. Selected: `accentSoft` fill, `accent` text. Focus: ember ring + scale 1.06.
-- **Row**: `sectionTitle` header with an `eyebrow` kicker, horizontal scroll of PosterCards, `xl` vertical gap between rows.
-- **EmptyState**: centered icon, title, one line; warm and instructive, never a spinner when signed out.
-- **Primary button (play / resume)**: `accent` fill, `textPrimary`-on-accent, `control` radius, leading icon. Focus: brighten + scale + glow.
+- **Full-Bleed Hero**: 1920×780 hero banner with left and bottom dark gradient scrims, left-aligned stacked info block, white pill Play button, bottom-right page dots, and auto-rotation with Reduce Motion support.
+- **Continue Watching Rail**: 380×214 landscape cards with source badge, remaining time indicator, and 4pt progress bar.
+- **Ranked Charts Rail**: Large gradient rank numbers (1 to 10) in the corner of each 2:3 card, backed by `LazyHStack`.
+- **Curated Feature Rail**: 240×360 portrait cards with bottom title/genre scrim, optional "NEW" badge, and 1.5s dwell trailer.
+- **Detail Page**: Single static dominant-color gradient backdrop (extracted once via `DominantColorExtractor`), metadata format badges (HD, CC, LIVE), season chips, and horizontal `LazyHStack` episode cards with high-contrast focused backplates.
 
 ## Motion
 
-- Focus: spring (response 0.32, damping 0.78) on scale and lift. Feels like a soft magnetic snap, no overshoot beyond the spring.
+- Focus: 250ms ease-out on scale and lift (`Theme.Motion.focus`).
 - State changes: 180ms ease-out.
-- Reduce Motion: drop scale and spring, keep opacity and instant selection.
-- Never animate layout-bound properties; scale and opacity and shadow only.
-
-## Iconography
-
-SF Symbols throughout, filled variants for primary affordances (`play.fill`, `checkmark.circle.fill`), consistent weight. No mixed icon families.
+- Reduce Motion: disables auto-rotation, trailer playback, title parallax, and scales.
+- Only transform and opacity animations; never animate layout dimensions.

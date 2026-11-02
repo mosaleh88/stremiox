@@ -1,5 +1,34 @@
 import SwiftUI
 
+// MARK: - White Pill Button Style (Apple TV Native Play Button)
+
+struct WhitePillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        WhitePillButton(configuration: configuration)
+    }
+
+    private struct WhitePillButton: View {
+        let configuration: Configuration
+        @Environment(\.isFocused) private var isFocused
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Color.black)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(isFocused ? Color.white : Color.white.opacity(0.92))
+                )
+                .scaleEffect(isFocused && !reduceMotion ? 1.08 : (configuration.isPressed ? 0.96 : 1.0))
+                .shadow(color: isFocused ? Color.black.opacity(0.6) : Color.clear, radius: 18, y: 8)
+                .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: isFocused)
+        }
+    }
+}
+
 // MARK: - Circle Glass Button Style (Apple TV Native)
 
 struct CircleGlassButtonStyle: ButtonStyle {
@@ -10,6 +39,7 @@ struct CircleGlassButtonStyle: ButtonStyle {
     private struct CircleGlassButton: View {
         let configuration: Configuration
         @Environment(\.isFocused) private var isFocused
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             configuration.label
@@ -22,9 +52,9 @@ struct CircleGlassButtonStyle: ButtonStyle {
                     Circle()
                         .strokeBorder(isFocused ? Color.white : Color.white.opacity(0.35), lineWidth: 1.5)
                 )
-                .scaleEffect(isFocused ? 1.15 : (configuration.isPressed ? 0.94 : 1.0))
+                .scaleEffect(isFocused && !reduceMotion ? 1.15 : (configuration.isPressed ? 0.94 : 1.0))
                 .shadow(color: isFocused ? Color.black.opacity(0.6) : Color.clear, radius: 14, y: 7)
-                .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isFocused)
+                .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: isFocused)
         }
     }
 }
@@ -48,15 +78,19 @@ struct HeroCarouselItem: Identifiable {
 struct HeroCarouselView: View {
     let items: [HeroCarouselItem]
     @State private var currentIndex: Int = 0
+    @FocusState private var isControlsFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var presenter: PlayerPresenter
     @EnvironmentObject private var theme: ThemeManager
     @ObservedObject private var appSettings = AppSettings.shared
+
+    private let timer = Timer.publish(every: 7.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
         if items.isEmpty {
             EmptyView()
         } else {
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            ZStack(alignment: .bottomLeading) {
                 TabView(selection: $currentIndex) {
                     ForEach(Array(items.prefix(6).enumerated()), id: \.element.id) { index, item in
                         heroCarouselSlide(item)
@@ -64,30 +98,35 @@ struct HeroCarouselView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 760)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.heroCard, style: .continuous))
-                .liquidGlassBackground(cornerRadius: Theme.Radius.heroCard)
-                .overlay(alignment: .bottom) {
-                    // Centered Apple TV page indicator dots matching Photo 2
-                    HStack(spacing: 8) {
-                        ForEach(0..<min(items.count, 6), id: \.self) { idx in
-                            Capsule()
-                                .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.35))
-                                .frame(width: idx == currentIndex ? 24 : 8, height: 8)
-                                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
-                        }
+                .frame(height: 780)
+
+                // Page indicator dots at bottom right
+                HStack(spacing: 8) {
+                    ForEach(0..<min(items.count, 6), id: \.self) { idx in
+                        Capsule()
+                            .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.35))
+                            .frame(width: idx == currentIndex ? 24 : 8, height: 8)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
                     }
-                    .padding(.bottom, 22)
                 }
-                .padding(.horizontal, Theme.Space.screenEdge)
+                .padding(.trailing, 60)
+                .padding(.bottom, 48)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
-            .padding(.top, Theme.Space.sm)
+            .frame(maxWidth: .infinity)
+            .frame(height: 780)
+            .onReceive(timer) { _ in
+                guard !reduceMotion && !isControlsFocused else { return }
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    currentIndex = (currentIndex + 1) % max(1, min(items.count, 6))
+                }
+            }
         }
     }
 
     private func heroCarouselSlide(_ item: HeroCarouselItem) -> some View {
         ZStack(alignment: .bottomLeading) {
-            // High-resolution 16:9 Backdrop
+            // Full-bleed 16:9 Backdrop
             if let url = item.backdropURL {
                 AsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
@@ -100,41 +139,52 @@ struct HeroCarouselView: View {
                 Theme.Palette.surface1
             }
 
-            // Cinematic Vignette & Bottom Scrim
+            // Dark gradient on left edge for text contrast
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.85),
+                    Color.black.opacity(0.40),
+                    Color.clear
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+
+            // Dark gradient on bottom edge to blend into canvas
             LinearGradient(
                 colors: [
                     Color.clear,
-                    Theme.Palette.canvas.opacity(0.35),
-                    Theme.Palette.canvas.opacity(0.96)
+                    Theme.Palette.canvas.opacity(0.60),
+                    Theme.Palette.canvas
                 ],
                 startPoint: .center,
                 endPoint: .bottom
             )
 
-            // Content details & Action Buttons matching Apple TV Photo 2
-            VStack(alignment: .leading, spacing: 8) {
-                Spacer().frame(minHeight: 120, maxHeight: 200)
+            // Left-aligned stacked Hero Info Block
+            VStack(alignment: .leading, spacing: 10) {
+                Spacer().frame(minHeight: 120, maxHeight: 220)
 
-                // Eyebrow capsule tag
-                Text("ALL EPISODES AVAILABLE")
+                // Capsule Badge
+                Text(item.type == "series" ? "SERIES" : "FEATURED")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.95))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
                     .background(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
 
-                // Giant Title Logo
+                // Large Editorial Title Text
                 Text(item.title)
-                    .font(.system(size: 54, weight: .black, design: .default))
+                    .font(.system(size: 58, weight: .black, design: .serif))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .shadow(color: .black.opacity(0.85), radius: 8, x: 0, y: 3)
 
-                // Metadata Badges (tv icon, format, year, rating, genre)
+                // Metadata Line (type, genres, rating)
                 HStack(spacing: 8) {
                     Image(systemName: "tv.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(Theme.Palette.accent)
+                        .foregroundStyle(theme.accent)
                     Text(item.type.capitalized)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
@@ -151,39 +201,39 @@ struct HeroCarouselView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 13))
-                                .foregroundStyle(Theme.Palette.accent)
+                                .foregroundStyle(theme.accent)
                             Text(rating)
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(Theme.Palette.textPrimary)
                         }
                     }
 
-                    Text("4K HDR")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.9))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+                    if !item.genres.isEmpty {
+                        Text("•").foregroundStyle(Theme.Palette.textTertiary)
+                        Text(item.genres.prefix(2).joined(separator: " / "))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                    }
                 }
 
-                // Synopsis
+                // 2-line Description
                 if let overview = item.overview, !overview.isEmpty {
                     Text(overview)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.system(size: 17, weight: .regular))
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .lineLimit(2)
-                        .frame(maxWidth: 780, alignment: .leading)
+                        .frame(maxWidth: 820, alignment: .leading)
                 }
 
-                // Action Buttons Cluster matching Photo 2
+                // Action Buttons: White Pill Play button + small circular buttons
                 HStack(spacing: Theme.Space.md) {
-                    // Primary White Pill: Watch Now
+                    // White Pill: Play
                     NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
-                        Label("Watch Now", systemImage: "play.fill")
+                        Label("Play", systemImage: "play.fill")
                     }
-                    .buttonStyle(PrimaryActionStyle())
+                    .buttonStyle(WhitePillButtonStyle())
 
-                    // Glass circle button: + (Add to Library)
+                    // Circular button: + (Add to Library)
                     Button {
                         CoreBridge.shared.addToLibrary(metaId: item.id)
                     } label: {
@@ -193,7 +243,7 @@ struct HeroCarouselView: View {
                     }
                     .buttonStyle(CircleGlassButtonStyle())
 
-                    // Glass circle button: i (Details)
+                    // Circular button: i (Info / Details)
                     NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
                         Image(systemName: "info")
                             .font(.system(size: 18, weight: .bold))
@@ -201,7 +251,7 @@ struct HeroCarouselView: View {
                     }
                     .buttonStyle(CircleGlassButtonStyle())
 
-                    // Glass circle button: Trailer
+                    // Circular button: Trailer
                     Button {
                         Task {
                             if let trailer = await MetadataService.shared.resolveTrailer(for: item.id) {
@@ -221,10 +271,11 @@ struct HeroCarouselView: View {
                     }
                     .buttonStyle(CircleGlassButtonStyle())
                 }
-                .padding(.top, 4)
+                .padding(.top, 6)
+                .focused($isControlsFocused)
             }
-            .padding(.horizontal, Theme.Space.xl)
-            .padding(.bottom, 54)
+            .padding(.horizontal, 60)
+            .padding(.bottom, 48)
         }
     }
 }
@@ -327,9 +378,8 @@ struct LandscapeCWCard: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white : Color.white.opacity(0.12), lineWidth: isFocused ? 3.5 : 1)
+                    .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
             )
-            .shadow(color: isFocused ? Color.black.opacity(0.75) : Color.clear, radius: 28, x: 0, y: 16)
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
         .contextMenu {
@@ -402,7 +452,7 @@ struct FullBleedBannerRail: View {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 RailHeader(eyebrow: "FEATURED CHARTS", title: title)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: Theme.Space.xl) {
+                    LazyHStack(alignment: .top, spacing: Theme.Space.xl) {
                         ForEach(items) { item in
                             bannerCard(item)
                         }
@@ -425,6 +475,7 @@ struct FullBleedBannerRail: View {
 private struct Top10ItemView: View {
     let item: BannerCardItem
     @Environment(\.isFocused) private var isFocused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .bottom, spacing: -26) {
@@ -468,9 +519,8 @@ private struct Top10ItemView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(isFocused ? Color.white : Color.white.opacity(0.12), lineWidth: isFocused ? 3.5 : 1)
+                        .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
                 )
-                .shadow(color: isFocused ? Color.black.opacity(0.75) : Color.clear, radius: 24, y: 14)
 
                 // Title and Genre underneath matching Apple TV Photo 5
                 VStack(alignment: .leading, spacing: 2) {
@@ -478,6 +528,7 @@ private struct Top10ItemView: View {
                         .font(.system(size: 18, weight: isFocused ? .bold : .semibold))
                         .foregroundStyle(isFocused ? Color.white : Theme.Palette.textPrimary)
                         .lineLimit(1)
+                        .offset(y: (isFocused && !reduceMotion) ? -2 : 0)
                     Text(item.genre ?? item.type.capitalized)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.Palette.textTertiary)
@@ -515,7 +566,7 @@ struct CuratedCategoryRail: View {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 RailHeader(eyebrow: eyebrow, title: title)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Space.lg) {
+                    LazyHStack(spacing: Theme.Space.lg) {
                         ForEach(items) { item in
                             CuratedCardView(item: item)
                         }
@@ -531,6 +582,7 @@ struct CuratedCategoryRail: View {
 private struct CuratedCardView: View {
     let item: CuratedCardItem
     @Environment(\.isFocused) private var isFocused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var trailerURL: URL?
     @State private var dwellTask: Task<Void, Never>?
     @State private var isDwellTrailerActive = false
@@ -538,7 +590,7 @@ private struct CuratedCardView: View {
     var body: some View {
         NavigationLink(destination: DetailView(type: item.type, id: item.id)) {
             ZStack(alignment: .bottomLeading) {
-                // Card Media Layer: Poster or Inline Looping Trailer (Photo 4)
+                // Card Media Layer: 2:3 Large Portrait Poster or Looping Trailer
                 if isDwellTrailerActive, let trailerURL {
                     BackdropVideoPlayer(url: trailerURL)
                         .transition(.opacity)
@@ -562,17 +614,17 @@ private struct CuratedCardView: View {
                     Theme.Palette.surface1
                 }
 
-                // Top Tag badge (e.g. "New" in Photo 3)
+                // Optional "New" or promotional badge in top corner
                 if let tag = item.tag, !tag.isEmpty {
                     VStack {
                         HStack {
-                            Text(tag)
-                                .font(.system(size: 12, weight: .bold))
+                            Text(tag.uppercased())
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(Color.white)
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.black.opacity(0.6)))
-                                .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.black.opacity(0.65)))
+                                .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
                             Spacer()
                         }
                         Spacer()
@@ -580,64 +632,62 @@ private struct CuratedCardView: View {
                     .padding(14)
                 }
 
-                // Bottom Gradient Scrim
+                // Bottom Gradient Scrim for readable title & metadata
                 LinearGradient(
                     colors: [
                         Color.clear,
-                        Color.black.opacity(0.4),
+                        Color.black.opacity(0.45),
                         Color.black.opacity(0.92)
                     ],
                     startPoint: .center,
                     endPoint: .bottom
                 )
 
-                // Title & Subtitle Info matching Photo 3
+                // Title, metadata line (genres) and tagline at bottom
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 21, weight: .bold))
                         .foregroundStyle(Color.white)
                         .lineLimit(1)
-                        .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 2)
+                        .shadow(color: .black.opacity(0.85), radius: 4, x: 0, y: 2)
+                        .offset(y: (isFocused && !reduceMotion) ? -2 : 0)
 
                     HStack(spacing: 5) {
-                        Image(systemName: "tv.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Theme.Palette.accent)
                         Text(item.type.capitalized)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.8))
+                            .foregroundStyle(Color.white.opacity(0.85))
                         if !item.genres.isEmpty {
                             Text("•").foregroundStyle(Color.white.opacity(0.5))
                             Text(item.genres.prefix(2).joined(separator: " · "))
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.white.opacity(0.75))
                         }
                     }
 
                     if let subtag = item.subtag, !subtag.isEmpty {
                         Text(subtag)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.95))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.accentBright)
+                            .lineLimit(1)
                             .padding(.top, 2)
                     }
                 }
                 .padding(14)
             }
-            .frame(width: 320, height: 260)
+            .frame(width: 240, height: 360)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isFocused ? Color.white : Color.white.opacity(0.12), lineWidth: isFocused ? 3.5 : 1)
+                    .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3.5 : 0)
             )
-            .shadow(color: isFocused ? Color.black.opacity(0.75) : Color.clear, radius: 24, y: 14)
         }
         .buttonStyle(CardFocusStyle(scale: 1.08))
         .onChange(of: isFocused) { focused in
             dwellTask?.cancel()
-            if focused {
-                // 800ms dwell before inline video trailer playback kicks in (Photo 4)
+            if focused && !reduceMotion && AppSettings.shared.backdropTrailers {
+                // 1500ms dwell before inline video trailer playback kicks in
                 dwellTask = Task {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
                     guard !Task.isCancelled else { return }
                     if let trailer = await MetadataService.shared.resolveTrailer(for: item.id) {
                         guard !Task.isCancelled else { return }
@@ -655,6 +705,11 @@ private struct CuratedCardView: View {
                     trailerURL = nil
                 }
             }
+        }
+        .onDisappear {
+            dwellTask?.cancel()
+            isDwellTrailerActive = false
+            trailerURL = nil
         }
     }
 }

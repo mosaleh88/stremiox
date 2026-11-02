@@ -62,7 +62,7 @@ enum Theme {
     // MARK: Motion
 
     enum Motion {
-        static let focus = Animation.spring(response: 0.32, dampingFraction: 0.78)
+        static let focus = Animation.easeOut(duration: 0.25)
         static let state = Animation.easeOut(duration: 0.18)
     }
 
@@ -148,7 +148,8 @@ private struct CardFocusContent: View {
         let lifted = active && !reduceMotion
         let label = configuration.label
             .scaleEffect(lifted ? scale : (configuration.isPressed ? 0.97 : 1))
-            .shadow(color: lifted ? Color.black.opacity(0.75) : Color.clear, radius: 28, x: 0, y: 16)
+            .shadow(color: lifted ? Color.black.opacity(0.8) : Color.clear, radius: 24, x: 0, y: 14)
+            .shadow(color: lifted ? Theme.Palette.accent.opacity(0.35) : Color.clear, radius: 14, x: 0, y: 0)
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
             .animation(Theme.Motion.state, value: configuration.isPressed)
         #if os(macOS)
@@ -243,7 +244,8 @@ private struct RowFocusContent: View {
 extension View {
     @ViewBuilder
     func liquidGlassBackground(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
-        if AppSettings.shared.liquidGlass {
+        // Liquid Glass / live blur is strictly guarded on Apple TV HD (PerformanceMode.reduced) to prevent severe GPU overdraw stutter
+        if AppSettings.shared.liquidGlass && !PerformanceMode.reduced {
             self.background(
                 ZStack {
                     // 1. Native tvOS frosted material blur
@@ -282,7 +284,14 @@ extension View {
                 .shadow(color: Color.black.opacity(0.28), radius: 16, x: 0, y: 8)
             )
         } else {
-            self
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Theme.Palette.surface1)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
         }
     }
 }

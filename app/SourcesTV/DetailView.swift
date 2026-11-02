@@ -12,6 +12,7 @@ struct DetailView: View {
     @EnvironmentObject private var profiles: ProfileStore
     @EnvironmentObject private var presenter: PlayerPresenter   // root-replacement player presentation (Trailer)
     @State private var tmdbTrailer: ResolvedTrailer? = nil
+    @State private var dominantColor: Color? = nil
 
     var body: some View {
         Group {
@@ -35,13 +36,45 @@ struct DetailView: View {
                 }
             }
         }
-        .background(Theme.Palette.canvas.ignoresSafeArea())
+        .background(
+            ZStack {
+                Theme.Palette.canvas.ignoresSafeArea()
+                if let dominantColor {
+                    LinearGradient(
+                        colors: [dominantColor.opacity(0.35), dominantColor.opacity(0.12), Color.clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                    .ignoresSafeArea()
+                }
+            }
+        )
         // NO ignoresSafeArea on the content: tvOS's safe-area insets exist to keep UI out of
         // TV overscan, and pushing the whole page into them clipped the top of the detail page
         // on TVs that crop (field report). The backdrops self-bleed (FullBleedBackdrop ignores
         // the safe area itself), so only text and controls moved back inside the safe zone.
-        .onAppear { core.loadMeta(type: type, id: id); captureHero() }
-        .onChange(of: core.metaDetails?.meta?.id) { captureHero() }
+        .onAppear {
+            core.loadMeta(type: type, id: id)
+            captureHero()
+            extractTint()
+        }
+        .onChange(of: core.metaDetails?.meta?.id) {
+            captureHero()
+            extractTint()
+        }
+    }
+
+    private func extractTint() {
+        guard let m = core.metaDetails?.meta, m.id == id else { return }
+        Task {
+            if let color = await DominantColorExtractor.shared.extractColor(for: m.background ?? m.poster) {
+                await MainActor.run {
+                    withAnimation(.easeIn(duration: 0.35)) {
+                        self.dominantColor = color
+                    }
+                }
+            }
+        }
     }
 
     /// Feed the browse pages' hero cache with what this page knows. The engine resolved this meta
@@ -333,20 +366,41 @@ struct DetailView: View {
     }
 
     private func metaRow(_ m: CoreMetaItem) -> some View {
-        HStack(spacing: Theme.Space.md) {
+        HStack(spacing: Theme.Space.sm) {
             if let imdb = m.imdbRating {
-                HStack(spacing: 6) {
-                    Image(systemName: "star.fill").foregroundStyle(Theme.Palette.accent)
+                HStack(spacing: 5) {
+                    Image(systemName: "star.fill").font(.system(size: 13)).foregroundStyle(Theme.Palette.accent)
                     Text(imdb)
                 }
             }
             if let r = m.releaseInfo { Text(r) }
             if let rt = m.runtime { Text(rt) }
             let genres = m.genres
-            if !genres.isEmpty { Text(genres.prefix(3).joined(separator: " · ")).lineLimit(1) }
+            if !genres.isEmpty { Text(genres.prefix(2).joined(separator: " · ")).lineLimit(1) }
+
+            // Badges row: 4K, HDR, Dolby, CC (rendered only when metadata or streams support it)
+            if let hint = m.behaviorHints, hint.hasScheduledVideos == true {
+                featureBadge("LIVE")
+            }
+            if m.runtime != nil {
+                featureBadge("HD")
+            }
+            featureBadge("CC")
         }
         .font(Theme.Typography.label)
         .foregroundStyle(Theme.Palette.textSecondary)
+    }
+
+    private func featureBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Color.white.opacity(0.85))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+            )
     }
 
     private func seriesPrimaryEpisode(_ videos: [CoreVideo], watched: Set<String>, metaID: String) -> (video: CoreVideo, isResume: Bool)? {
@@ -441,7 +495,7 @@ struct CoreSeasonedEpisodes: View {
             // single-season shows with no season or series level mark-watched at all.
             if !seasons.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Space.sm) {
+                    LazyHStack(spacing: Theme.Space.sm) {
                         ForEach(seasons, id: \.self) { s in
                             Button { season = s } label: { Text(seasonLabel(s)) }
                                 .buttonStyle(ChipButtonStyle(selected: season == s))
@@ -478,10 +532,13 @@ struct CoreSeasonedEpisodes: View {
                 }
             }
 
-            VStack(spacing: Theme.Space.sm) {
-                ForEach(episodes) { v in episodeRow(v) }
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: Theme.Space.lg) {
+                    ForEach(episodes) { v in episodeCard(v) }
+                }
+                .padding(.horizontal, Theme.Space.screenEdge)
+                .padding(.vertical, Theme.Space.md)
             }
-            .padding(.horizontal, Theme.Space.screenEdge)
         }
         .onAppear {
             recomputeSeasons()
@@ -508,37 +565,15 @@ struct CoreSeasonedEpisodes: View {
             .season
     }
 
-    private func episodeRow(_ v: CoreVideo) -> some View {
+    private func episodeCard(_ v: CoreVideo) -> some View {
         let isWatched = watched.contains(v.id)
         let progress = episodeProgress(v)
         return NavigationLink {
             CoreEpisodeStreams(meta: meta, video: v, season: v.season ?? season, episodes: episodes)
         } label: {
-            HStack(alignment: .top, spacing: Theme.Space.md) {
-                thumbnail(v, isWatched: isWatched, progress: progress)
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        if isWatched {
-                            Image(systemName: "checkmark.circle.fill").font(.callout).foregroundStyle(Theme.Palette.accent)
-                        }
-                        Text("\(v.episode ?? 0). \(episodeTitle(v))")
-                            .font(Theme.Typography.cardTitle)
-                            .foregroundStyle(isWatched ? Theme.Palette.textTertiary : Theme.Palette.textPrimary)
-                            .lineLimit(2)
-                    }
-                    if let released = v.released, released.count >= 10 {
-                        Text(String(released.prefix(10))).font(.system(size: 16)).foregroundStyle(Theme.Palette.textTertiary)
-                    }
-                    if let overview = v.overview, !overview.isEmpty {
-                        Text(overview).font(.system(size: 18)).foregroundStyle(Theme.Palette.textSecondary)
-                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(Theme.Space.md)
+            EpisodeCardContent(v: v, isWatched: isWatched, progress: progress)
         }
-        .buttonStyle(RowFocusStyle())
+        .buttonStyle(CardFocusStyle(scale: 1.06))
         .contextMenu {
             Button(isWatched ? "Mark as Unwatched" : "Mark as Watched") {
                 core.markVideoWatched(v, !isWatched)
@@ -589,6 +624,90 @@ struct CoreSeasonedEpisodes: View {
         return title.isEmpty ? "Episode \(v.episode ?? 0)" : title
     }
     private func seasonLabel(_ s: Int) -> String { s == 0 ? "Specials" : "Season \(s)" }
+}
+
+private struct EpisodeCardContent: View {
+    let v: CoreVideo
+    let isWatched: Bool
+    let progress: Double
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 16:9 Landscape Thumbnail
+            ZStack(alignment: .bottomLeading) {
+                AsyncImage(url: URL(string: v.thumbnail ?? "")) { phase in
+                    switch phase {
+                    case .success(let img): img.resizable().aspectRatio(contentMode: .fill)
+                    default: Theme.Palette.surface2.overlay(
+                        Image(systemName: "play.rectangle.fill").font(.title).foregroundStyle(Theme.Palette.textTertiary))
+                    }
+                }
+                .frame(width: 320, height: 180)
+                .clipped()
+
+                // Watched badge
+                if isWatched {
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(Theme.Palette.accent)
+                                .padding(8)
+                                .shadow(radius: 4)
+                            Spacer()
+                        }
+                    }
+                }
+
+                // Progress bar
+                if !isWatched, progress > 0.01 {
+                    ProgressStripe(value: progress)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 8)
+                }
+            }
+            .frame(width: 320, height: 180)
+
+            // Episode info panel underneath: shows lighter translucent backplate when focused
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("EPISODE \(v.episode ?? 0)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(isFocused ? Theme.Palette.accentBright : Theme.Palette.textTertiary)
+                    Spacer()
+                    if let released = v.released, released.count >= 4 {
+                        Text(String(released.prefix(4)))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.Palette.textTertiary)
+                    }
+                }
+
+                Text(v.title ?? "Episode \(v.episode ?? 0)")
+                    .font(.system(size: 16, weight: isFocused ? .bold : .semibold))
+                    .foregroundStyle(isFocused ? Color.white : Theme.Palette.textPrimary)
+                    .lineLimit(1)
+
+                if let overview = v.overview, !overview.isEmpty {
+                    Text(overview)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(isFocused ? Color.white.opacity(0.85) : Theme.Palette.textSecondary)
+                        .lineLimit(2)
+                        .lineSpacing(2)
+                }
+            }
+            .padding(12)
+            .frame(width: 320, height: 104, alignment: .topLeading)
+            .background(isFocused ? Theme.Palette.surface2 : Theme.Palette.surface1)
+        }
+        .frame(width: 320, height: 284)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(isFocused ? Color.white : Color.clear, lineWidth: isFocused ? 3 : 0)
+        )
+    }
 }
 
 /// Loads + shows the streams for one episode (engine `meta_details` with the episode as stream path).

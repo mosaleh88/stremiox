@@ -525,9 +525,9 @@ final class MPVMetalViewController: PlatformViewController {
         configureLiveMode(live)
         let readAhead: String
         if live {
-            readAhead = "64MiB"
+            readAhead = PerformanceMode.reduced ? "32MiB" : "64MiB"
         } else if PerformanceMode.reduced {
-            readAhead = isLocalStream ? "64MiB" : "256MiB"   // 2 GB Apple TV HD: keep buffers tight
+            readAhead = isLocalStream ? "48MiB" : "128MiB"   // 2 GB Apple TV HD: safe buffer to prevent jetsam OOM
         } else {
             readAhead = isLocalStream ? "128MiB" : "512MiB"
         }

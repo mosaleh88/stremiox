@@ -53,7 +53,25 @@ struct PosterArt: View {
         do {
             let (data, _) = try await URLSession.shared.data(for: req)
             guard !Task.isCancelled else { return }
-            if let img = UIImage(data: data) {
+            
+            // Downsample off main thread for Apple TV 1080p layout to prevent memory bloat
+            let targetSize = CGSize(width: width * 2, height: width * 3) // 2x density for crisp 1080p
+            let decoded = await Task.detached(priority: .background) { () -> UIImage? in
+                guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return UIImage(data: data) }
+                let maxPixelSize = max(targetSize.width, targetSize.height)
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceShouldCacheImmediately: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+                ]
+                guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                    return UIImage(data: data)
+                }
+                return UIImage(cgImage: thumbnail)
+            }.value
+
+            if let img = decoded {
                 posterMemoryCache.setObject(img, forKey: url as NSURL)
                 image = img
             } else { failed = true }
@@ -353,8 +371,8 @@ struct BrowseHeroBackdrop: View {
     /// even as the tab bar shows or hides and shifts the top safe area.
     var detailsBottom: CGFloat? = nil
     @EnvironmentObject private var theme: ThemeManager
-    @State private var trailerURL: URL? = nil
-    @State private var trailerTask: Task<Void, Never>? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var trailerManager = HeroTrailerManager.shared
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -362,8 +380,8 @@ struct BrowseHeroBackdrop: View {
             if let hero = model.hero {
                 ZStack {
                     FullBleedBackdrop(url: hero.backdrop)
-                    if let trailerURL {
-                        BackdropVideoPlayer(url: trailerURL)
+                    if trailerManager.isReadyToDisplay {
+                        SingleSharedTrailerView()
                             .ignoresSafeArea()
                             .transition(.opacity)
                     }
@@ -383,22 +401,10 @@ struct BrowseHeroBackdrop: View {
         .animation(.easeOut(duration: 0.35), value: model.hero?.id)
         .animation(.easeOut(duration: 0.25), value: model.detailsVisible)
         .onChange(of: model.hero?.id) { newId in
-            trailerTask?.cancel()
-            trailerURL = nil
-            guard AppSettings.shared.backdropTrailers, let newId else { return }
-            trailerTask = Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if Task.isCancelled { return }
-                if let u = await MetadataService.shared.resolveTrailerURL(for: newId) {
-                    if !Task.isCancelled {
-                        await MainActor.run {
-                            withAnimation(.easeIn(duration: 0.5)) {
-                                self.trailerURL = u
-                            }
-                        }
-                    }
-                }
-            }
+            trailerManager.focusTitle(id: newId, isReduceMotion: reduceMotion)
+        }
+        .onDisappear {
+            trailerManager.stopAndRelease()
         }
     }
 
@@ -452,13 +458,16 @@ private struct PosterCardLabel: View {
     let progress: Double?
     let onFocus: (() -> Void)?
     @Environment(\.isFocused) private var isFocused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             PosterArt(poster, width: width)
                 .overlay {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isFocused ? 1.0 : 0), lineWidth: 3.5)
+                    if isFocused {
+                        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                            .strokeBorder(Color.white, lineWidth: 3.5)
+                    }
                 }
                 .overlay(alignment: .bottom) {
                     if let progress, progress > 0.01 {
@@ -470,6 +479,7 @@ private struct PosterCardLabel: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .foregroundStyle(isFocused ? Theme.Palette.textPrimary : Theme.Palette.textSecondary)
+                .offset(y: (isFocused && !reduceMotion) ? -2 : 0)
                 .frame(width: width, alignment: .leading)
         }
         .background { if let onFocus { FocusReporter(onFocus: onFocus) } }

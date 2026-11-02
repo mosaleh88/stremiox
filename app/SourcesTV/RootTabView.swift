@@ -108,49 +108,144 @@ struct RootView: View {
 /// as focus crosses them, and focus moves cleanly between the tab bar and the page content (up/down). The
 /// player no longer depends on the shell being a custom bar, it locks focus on its own catcher while up,
 /// so the native tab bar can't steal the remote.
+/// The app shell with native Apple TV left sidebar navigation and quick "Home" / tab pill.
 struct RootTabView: View {
     @EnvironmentObject private var account: StremioAccount
     @EnvironmentObject private var theme: ThemeManager
     @ObservedObject private var appSettings = AppSettings.shared
-    @State private var selection = 0
-    // Per-tab identity token. Each tab owns its own NavigationStack whose pushed pages persist
-    // while the tab stays alive (tvOS keeps tabs mounted). Bumping the token of the tab you LEAVE
-    // changes that tab's view identity, so the next time you open it SwiftUI rebuilds it fresh at
-    // its root instead of re-showing the detail page you had pushed (the "Search still shows the
-    // series I opened" bug). Cheap because the data lives in CoreBridge, not in the view.
+    @State private var selectedTab: TabItem = .home
+    @State private var isSidebarOpen: Bool = false
+    @FocusState private var sidebarFocusedItem: TabItem?
+    @FocusState private var isHomePillFocused: Bool
     @State private var resetTokens = [Int](repeating: 0, count: 7)
 
     var body: some View {
-        TabView(selection: $selection) {
-            HomeView().id(resetTokens[0])
-                .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
-            DiscoverView().id(resetTokens[1])
-                .tabItem { Label("Discover", systemImage: "safari.fill") }.tag(1)
-            // Live TV sits after Discover. Tags 0–5 were already taken (Search uses 4, Add-ons 3),
-            // so Live takes the next free tag 6 and reset slot 6 — the selection-reset .onChange
-            // below stays in bounds against the resized 7-slot array.
-            LiveView().id(resetTokens[6])
-                .tabItem { Label("Live", systemImage: "dot.radiowaves.left.and.right") }.tag(6)
-            LibraryView().id(resetTokens[2])
-                .tabItem { Label("Library", systemImage: "books.vertical.fill") }.tag(2)
-            NavigationStack { SearchView() }.id(resetTokens[4])
-                .tabItem { Label("Search", systemImage: "magnifyingglass") }.tag(4)
-            AddonsView().id(resetTokens[3])
-                .tabItem { Label("Add-ons", systemImage: "puzzlepiece.extension.fill") }.tag(3)
-            SettingsView().id(resetTokens[5])
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(5)
+        ZStack(alignment: .leading) {
+            // Main content based on selected tab
+            Group {
+                switch selectedTab {
+                case .home:
+                    HomeView().id(resetTokens[TabItem.home.rawValue])
+                case .discover:
+                    DiscoverView().id(resetTokens[TabItem.discover.rawValue])
+                case .live:
+                    LiveView().id(resetTokens[TabItem.live.rawValue])
+                case .library:
+                    LibraryView().id(resetTokens[TabItem.library.rawValue])
+                case .search:
+                    NavigationStack { SearchView() }.id(resetTokens[TabItem.search.rawValue])
+                case .addons:
+                    AddonsView().id(resetTokens[TabItem.addons.rawValue])
+                case .settings:
+                    SettingsView().id(resetTokens[TabItem.settings.rawValue])
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .disabled(isSidebarOpen)
+
+            // Top-left translucent "Home" / tab pill with back chevron
+            if !isSidebarOpen {
+                VStack {
+                    HStack {
+                        homePill
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(.leading, 54)
+                .padding(.top, 40)
+                .zIndex(20)
+                .transition(.opacity)
+            }
+
+            // Dimmed scrim behind open sidebar
+            if isSidebarOpen {
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                    .zIndex(30)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                            isSidebarOpen = false
+                        }
+                    }
+            }
+
+            // Left Sidebar Panel
+            if isSidebarOpen {
+                SidebarView(
+                    selectedTab: $selectedTab,
+                    isOpen: $isSidebarOpen,
+                    focusedItem: $sidebarFocusedItem
+                )
+                .padding(.leading, 40)
+                .zIndex(40)
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
         }
-        .tint(theme.accent)
-        .onAppear { selection = 0; applyTabBarAccent() }
-        // Reset the tab being LEFT to its root, so returning to it lands on the root page.
-        .onChange(of: selection) { old, _ in
-            if old >= 0, old < resetTokens.count { resetTokens[old] += 1 }
+        .onExitCommand {
+            handleMenuPress()
         }
-        // The active profile owns the theme: mirror Settings changes into it so they survive a switch.
-        .onChange(of: theme.accentID) { applyTabBarAccent(); ProfileStore.shared.captureTheme() }
-        .onChange(of: theme.oled) { applyTabBarAccent(); ProfileStore.shared.captureTheme() }
+        .onChange(of: selectedTab) { old, _ in
+            if old.rawValue >= 0, old.rawValue < resetTokens.count {
+                resetTokens[old.rawValue] += 1
+            }
+        }
+        .onChange(of: isSidebarOpen) { _, open in
+            if open {
+                sidebarFocusedItem = selectedTab
+            }
+        }
+        .onChange(of: theme.accentID) { ProfileStore.shared.captureTheme() }
+        .onChange(of: theme.oled) { ProfileStore.shared.captureTheme() }
         .onChange(of: theme.textScale) { ProfileStore.shared.captureTheme() }
-        .onChange(of: appSettings.appearanceMode) { applyTabBarAccent() }
+    }
+
+    private var homePill: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                isSidebarOpen = true
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                Text(selectedTab.title)
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundStyle(isHomePillFocused ? Color.black : Color.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(
+                Capsule()
+                    .fill(isHomePillFocused ? Color.white : Color(red: 0.12, green: 0.11, blue: 0.10).opacity(0.85))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isHomePillFocused ? Color.clear : Color.white.opacity(0.18), lineWidth: 1)
+            )
+            .scaleEffect(isHomePillFocused ? 1.06 : 1.0)
+            .shadow(color: isHomePillFocused ? Color.black.opacity(0.5) : Color.clear, radius: 10, y: 4)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHomePillFocused)
+        }
+        .buttonStyle(.plain)
+        .focused($isHomePillFocused)
+    }
+
+    private func handleMenuPress() {
+        if !isSidebarOpen {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                isSidebarOpen = true
+            }
+        } else {
+            if selectedTab != .home {
+                selectedTab = .home
+                sidebarFocusedItem = .home
+            } else {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                    isSidebarOpen = false
+                }
+            }
+        }
     }
 
     /// The focused / selected tab pill is system white by default; recolor it to the active accent
