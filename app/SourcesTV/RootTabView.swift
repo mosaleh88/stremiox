@@ -20,6 +20,8 @@ struct PlaybackRequest: Identifiable {
     var bingeGroup: String? = nil
     /// HTTP request headers the stream's add-on requires (behaviorHints.proxyHeaders).
     var headers: [String: String]? = nil
+    /// External audio stream URL (for split-track media like YouTube trailers).
+    var audioURL: URL? = nil
 }
 
 /// Holds the active playback request. Set it to present the player; clear it to dismiss.
@@ -61,7 +63,7 @@ struct RootView: View {
             if let req = presenter.request {
                 TVPlayerView(url: req.url, title: req.title, meta: req.meta, episodes: req.episodes,
                              sourceHint: req.sourceHint, torrent: req.torrent, bingeGroup: req.bingeGroup,
-                             headers: req.headers,
+                             headers: req.headers, audioURL: req.audioURL,
                              onClose: { presenter.request = nil })
                     .id(req.id)   // clean player teardown per request
             }
@@ -109,6 +111,7 @@ struct RootView: View {
 struct RootTabView: View {
     @EnvironmentObject private var account: StremioAccount
     @EnvironmentObject private var theme: ThemeManager
+    @ObservedObject private var appSettings = AppSettings.shared
     @State private var selection = 0
     // Per-tab identity token. Each tab owns its own NavigationStack whose pushed pages persist
     // while the tab stays alive (tvOS keeps tabs mounted). Bumping the token of the tab you LEAVE
@@ -138,7 +141,7 @@ struct RootTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(5)
         }
         .tint(theme.accent)
-        .onAppear { applyTabBarAccent() }
+        .onAppear { selection = 0; applyTabBarAccent() }
         // Reset the tab being LEFT to its root, so returning to it lands on the root page.
         .onChange(of: selection) { old, _ in
             if old >= 0, old < resetTokens.count { resetTokens[old] += 1 }
@@ -147,21 +150,29 @@ struct RootTabView: View {
         .onChange(of: theme.accentID) { applyTabBarAccent(); ProfileStore.shared.captureTheme() }
         .onChange(of: theme.oled) { applyTabBarAccent(); ProfileStore.shared.captureTheme() }
         .onChange(of: theme.textScale) { ProfileStore.shared.captureTheme() }
+        .onChange(of: appSettings.appearanceMode) { applyTabBarAccent() }
     }
 
     /// The focused / selected tab pill is system white by default; recolor it to the active accent
     /// with dark on-accent ink, and push the appearance onto any live tab bars so an accent change
     /// repaints without a relaunch.
     private func applyTabBarAccent() {
+        let isLight = theme.isLight
         let item = UITabBarItemAppearance()
-        item.normal.titleTextAttributes = [.foregroundColor: UIColor(Theme.Palette.textSecondary)]
-        item.normal.iconColor = UIColor(Theme.Palette.textSecondary)
+        let normalColor = isLight ? UIColor(white: 0.25, alpha: 0.85) : UIColor(Theme.Palette.textSecondary)
+        item.normal.titleTextAttributes = [.foregroundColor: normalColor]
+        item.normal.iconColor = normalColor
         item.selected.titleTextAttributes = [.foregroundColor: UIColor(Theme.Palette.onAccent)]
         item.selected.iconColor = UIColor(Theme.Palette.onAccent)
         item.focused.titleTextAttributes = [.foregroundColor: UIColor(Theme.Palette.onAccent)]
         item.focused.iconColor = UIColor(Theme.Palette.onAccent)
         let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
+        if isLight {
+            appearance.configureWithDefaultBackground()
+            appearance.backgroundColor = UIColor(white: 0.94, alpha: 0.85)
+        } else {
+            appearance.configureWithDefaultBackground()
+        }
         appearance.selectionIndicatorTintColor = UIColor(Theme.Palette.accent)
         appearance.inlineLayoutAppearance = item
         appearance.stackedLayoutAppearance = item

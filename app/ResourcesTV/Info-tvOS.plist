@@ -2,16 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Base Info.plist (Xcode merges its generated keys on top). The ATS exception lets the
-	     native client's URLSession reach the embedded streaming server at http://127.0.0.1:11470
-	     (cleartext loopback) to create torrents. libmpv playback isn't ATS-governed. -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<!-- Schemes the player's "Play in" handoff may probe with canOpenURL; keep in sync
-	     with ExternalPlayers.candidates. -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>infuse</string>
@@ -22,5 +12,10 @@
 		<string>nplayer-stremiox</string>
 		<string>mxplayer</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

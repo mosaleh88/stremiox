@@ -18,9 +18,9 @@ enum Theme {
         static var surface2: Color { ThemeManager.shared.surface2 } // chips, controls
         static var surface3: Color { ThemeManager.shared.surface3 } // hover / selected fill
         static var hairline: Color { ThemeManager.shared.hairline } // dividers only
-        static let textPrimary   = rgb(0.965, 0.945, 0.914) // #F6F1E9
-        static let textSecondary = rgb(0.737, 0.694, 0.631) // #BCB1A1
-        static let textTertiary  = rgb(0.620, 0.580, 0.520) // #9E9485 — raised from #8C8273 so 10-11pt text clears 4.5:1 on the warm canvas across all 8 accents
+        static var textPrimary: Color   { ThemeManager.shared.textPrimary }
+        static var textSecondary: Color { ThemeManager.shared.textSecondary }
+        static var textTertiary: Color  { ThemeManager.shared.textTertiary }
         // Accent is user-themeable via ThemeManager (8 curated accents). accentSoft / onAccent follow it.
         static var accent: Color { ThemeManager.shared.accent }             // focus / selection / primary / progress
         static var accentBright: Color { ThemeManager.shared.accentBright } // focus glow highlight
@@ -53,8 +53,9 @@ enum Theme {
     }
 
     enum Radius {
-        static let card: CGFloat = 16
-        static let chip: CGFloat = 12
+        static let card: CGFloat = 20
+        static let heroCard: CGFloat = 36
+        static let chip: CGFloat = 14
         static let control: CGFloat = 14
     }
 
@@ -91,14 +92,14 @@ enum Theme {
             #endif
             return (base * CGFloat(ThemeManager.shared.textScale)).rounded()
         }
-        static var hero: Font        { .system(size: scaled(64), weight: .heavy, design: .serif) }
-        static var wordmark: Font    { .system(size: scaled(38), weight: .bold, design: .serif) }
-        static var screenTitle: Font { .system(size: scaled(52), weight: .heavy) }
-        static var sectionTitle: Font { .system(size: scaled(30), weight: .semibold) }
-        static var cardTitle: Font   { .system(size: scaled(22), weight: .semibold) }
-        static var body: Font        { .system(size: scaled(24), weight: .regular) }
-        static var label: Font       { .system(size: scaled(20), weight: .medium) }
-        static var eyebrow: Font     { .system(size: scaled(15), weight: .bold) }
+        static var hero: Font        { .system(size: scaled(64), weight: .heavy, design: .default) }
+        static var wordmark: Font    { .system(size: scaled(36), weight: .bold, design: .default) }
+        static var screenTitle: Font { .system(size: scaled(52), weight: .heavy, design: .default) }
+        static var sectionTitle: Font { .system(size: scaled(30), weight: .bold, design: .default) }
+        static var cardTitle: Font   { .system(size: scaled(22), weight: .semibold, design: .default) }
+        static var body: Font        { .system(size: scaled(24), weight: .regular, design: .default) }
+        static var label: Font       { .system(size: scaled(20), weight: .medium, design: .default) }
+        static var eyebrow: Font     { .system(size: scaled(15), weight: .bold, design: .default) }
     }
 }
 
@@ -147,14 +148,7 @@ private struct CardFocusContent: View {
         let lifted = active && !reduceMotion
         let label = configuration.label
             .scaleEffect(lifted ? scale : (configuration.isPressed ? 0.97 : 1))
-            // Theme-colored halo on focus: an even accent glow that reads, at a glance and from
-            // across the room, which card the focus is on. Sized to sit inside the rails' padding
-            // so it never clips at a row edge.
-            .shadow(color: Theme.Palette.accent.opacity(active ? 0.75 : 0),
-                    radius: active ? 18 : 0, x: 0, y: 0)
-            // A soft black depth underneath grounds the lifted card on any artwork or theme.
-            .shadow(color: .black.opacity(active ? 0.45 : 0.32),
-                    radius: active ? 16 : 12, x: 0, y: active ? 10 : 7)
+            .shadow(color: lifted ? Color.black.opacity(0.75) : Color.clear, radius: 28, x: 0, y: 16)
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
             .animation(Theme.Motion.state, value: configuration.isPressed)
         #if os(macOS)
@@ -195,7 +189,6 @@ private struct PrimaryActionContent: View {
             .background(active ? Theme.Palette.accentBright : Theme.Palette.accent,
                         in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous))
             .scaleEffect(active && !reduceMotion ? 1.06 : (configuration.isPressed ? 0.97 : 1))
-            .shadow(color: Theme.Palette.accent.opacity(active ? 0.55 : 0), radius: 26, y: 12)
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
         #if os(macOS)
         return label.onHover { isHovered = $0 }
@@ -237,12 +230,59 @@ private struct RowFocusContent: View {
                     .strokeBorder(Theme.Palette.accent, lineWidth: active ? 3 : 0)
             )
             .scaleEffect(active && !reduceMotion ? 1.015 : (configuration.isPressed ? 0.99 : 1))
-            .shadow(color: active ? Theme.Palette.accent.opacity(0.28) : .clear, radius: 22, y: 10)
             .animation(reduceMotion ? nil : Theme.Motion.focus, value: active)
         #if os(macOS)
         return label.onHover { isHovered = $0 }
         #else
         return label
         #endif
+    }
+}
+
+// MARK: - Native Apple Liquid Glass & Frost Material
+extension View {
+    @ViewBuilder
+    func liquidGlassBackground(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+        if AppSettings.shared.liquidGlass {
+            self.background(
+                ZStack {
+                    // 1. Native tvOS frosted material blur
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+
+                    // 2. Specular top-lit ambient sheen (Apple glass lighting)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.12),
+                                    Color.white.opacity(0.02),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
+
+                    // 3. Specular rim highlight border (crisp top reflection, fading to soft bottom)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.35),
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+                .shadow(color: Color.black.opacity(0.28), radius: 16, x: 0, y: 8)
+            )
+        } else {
+            self
+        }
     }
 }

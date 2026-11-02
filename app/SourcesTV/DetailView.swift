@@ -11,6 +11,7 @@ struct DetailView: View {
     @EnvironmentObject private var theme: ThemeManager
     @EnvironmentObject private var profiles: ProfileStore
     @EnvironmentObject private var presenter: PlayerPresenter   // root-replacement player presentation (Trailer)
+    @State private var tmdbTrailer: ResolvedTrailer? = nil
 
     var body: some View {
         Group {
@@ -299,18 +300,35 @@ struct DetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Trailer chip. Plays the meta's trailer as a one-off clip through the player (no torrent, no
-    /// meta, no progress / auto-next). Shown only when a playable trailer URL exists — for a
-    /// YouTube-only trailer that needs the embedded server's `/yt` route, this is false on the Lite
-    /// build (StremioServer.canProxy == false), so the chip auto-hides there.
+    /// Trailer chip. Plays the meta's trailer through the player. If Cinemeta doesn't supply a direct stream,
+    /// falls back to TMDB video resolution for reliable trailer playback.
     @ViewBuilder private func trailerChip(_ m: CoreMetaItem) -> some View {
-        if let req = TrailerRequest.from(meta: m), let url = req.playableURL {
-            Button {
-                presenter.request = PlaybackRequest(url: url, title: "\(m.name) — Trailer")
-            } label: {
-                Label("Trailer", systemImage: "film")
+        let directURL = TrailerRequest.from(meta: m)?.playableURL
+        Button {
+            if let direct = directURL {
+                presenter.request = PlaybackRequest(url: direct, title: "\(m.name) — Trailer")
+            } else if let trailer = tmdbTrailer {
+                presenter.request = PlaybackRequest(url: trailer.videoURL, title: "\(m.name) — Trailer", audioURL: trailer.audioURL)
+            } else {
+                Task {
+                    if let trailer = await MetadataService.shared.resolveTrailer(for: m.id) {
+                        await MainActor.run {
+                            self.tmdbTrailer = trailer
+                            self.presenter.request = PlaybackRequest(url: trailer.videoURL, title: "\(m.name) — Trailer", audioURL: trailer.audioURL)
+                        }
+                    }
+                }
             }
-            .buttonStyle(ChipButtonStyle())
+        } label: {
+            Label("Trailer", systemImage: "film")
+        }
+        .buttonStyle(ChipButtonStyle())
+        .task(id: m.id) {
+            if directURL == nil && tmdbTrailer == nil {
+                if let trailer = await MetadataService.shared.resolveTrailer(for: m.id) {
+                    tmdbTrailer = trailer
+                }
+            }
         }
     }
 

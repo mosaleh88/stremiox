@@ -23,13 +23,23 @@ enum TrackSelector {
         guard !subs.isEmpty else { return -1 }
         // Foreign-language content (no preferred audio matched): show full subtitles so you can follow.
         if !gotPreferredAudio {
-            return firstMatch(subs, languages: p.subtitleLanguages, reject: p.rejectTerms)?.id ?? -1
+            return firstMatch(subs, languages: p.subtitleLanguages, reject: p.rejectTerms)?.id
+                ?? subs.first(where: { !isRejected($0, p.rejectTerms) })?.id
+                ?? subs.first?.id
+                ?? -1
         }
         switch p.forcedPolicy {
         case .off:
             return -1
         case .always:
-            return firstMatch(subs, languages: p.subtitleLanguages, reject: p.rejectTerms)?.id ?? -1
+            if let match = firstMatch(subs, languages: p.subtitleLanguages, reject: p.rejectTerms) {
+                return match.id
+            }
+            if !p.subtitleLanguages.contains("en"),
+               let en = firstMatch(subs, languages: ["en"], reject: p.rejectTerms) {
+                return en.id
+            }
+            return subs.first(where: { !isRejected($0, p.rejectTerms) })?.id ?? subs.first?.id ?? -1
         case .forced:
             for lang in p.subtitleLanguages {
                 if let t = subs.first(where: { matches($0.lang, lang) && $0.title.lowercased().contains("forced") && !isRejected($0, p.rejectTerms) }) {

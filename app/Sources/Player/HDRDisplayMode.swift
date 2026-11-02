@@ -68,7 +68,7 @@ enum HDRDisplayMode {
         // 2026-06-10, .ips on file). Real hardware has it since tvOS 11.2. Guard at
         // runtime too in case some device variant ever lacks it.
         guard let manager = displayManager(of: window) else { return }
-        guard range != .sdr else {
+        if range == .sdr && !AppSettings.shared.matchContent {
             reset(in: window)
             return
         }
@@ -98,7 +98,7 @@ enum HDRDisplayMode {
     private static func makeCriteria(range: ContentDynamicRange, rate: Float, width: Int, height: Int) -> AVDisplayCriteria? {
         let sel = NSSelectorFromString("initWithRefreshRate:videoDynamicRange:")
         if AVDisplayCriteria.instancesRespond(to: sel) {
-            let dynamicRange: Int32 = range == .hlg ? 3 : 2   // 2 = HDR10/PQ, 3 = HLG
+            let dynamicRange: Int32 = range == .sdr ? 0 : (range == .hlg ? 3 : 2)   // 0 = SDR, 2 = HDR10/PQ, 3 = HLG
             note("criteria via SPI int initializer, videoDynamicRange=\(dynamicRange)")
             return AVDisplayCriteria(refreshRate: rate, videoDynamicRange: dynamicRange)
         }

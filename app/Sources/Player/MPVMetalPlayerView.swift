@@ -22,6 +22,7 @@ struct MPVMetalPlayerView: PlatformViewControllerRepresentable {
         let mpv = MPVMetalViewController()
         mpv.playDelegate = coordinator
         mpv.playUrl = coordinator.playUrl
+        mpv.playAudioUrl = coordinator.playAudioUrl
         mpv.playHeaders = coordinator.playHeaders
         mpv.playUrlLive = coordinator.playLive
         let coord = context.coordinator
@@ -48,8 +49,9 @@ struct MPVMetalPlayerView: PlatformViewControllerRepresentable {
         coordinator
     }
 
-    func play(_ url: URL, headers: [String: String]? = nil) -> Self {
+    func play(_ url: URL, audioURL: URL? = nil, headers: [String: String]? = nil) -> Self {
         coordinator.playUrl = url
+        coordinator.playAudioUrl = audioURL
         coordinator.playHeaders = headers
         return self
     }
@@ -74,13 +76,14 @@ struct MPVMetalPlayerView: PlatformViewControllerRepresentable {
         weak var player: MPVMetalViewController?
 
         var playUrl : URL?
+        var playAudioUrl : URL?
         var playHeaders: [String: String]?
         var playLive = false
         var onPropertyChange: ((MPVMetalViewController, String, Any?) -> Void)?
         var onTap: (() -> Void)?
 
-        func play(_ url: URL) {
-            player?.loadFile(url, headers: playHeaders, live: playLive)
+        func play(_ url: URL, audioURL: URL? = nil) {
+            player?.loadFile(url, audioURL: audioURL ?? playAudioUrl, headers: playHeaders, live: playLive)
         }
 
         func propertyChange(mpv: OpaquePointer, propertyName: String, data: Any?) {

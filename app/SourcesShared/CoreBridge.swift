@@ -96,6 +96,45 @@ final class CoreBridge: ObservableObject {
     func uninstallAddon(_ descriptor: CoreDescriptor) {
         guard let raw = rawAddonsByUrl[descriptor.transportUrl] else { return }
         dispatchCtx(["action": "UninstallAddon", "args": raw])
+        dispatchCtx(["action": "PushAddonsToAPI"])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.refreshAddons()
+            self?.loadBoard()
+        }
+    }
+
+    /// Install an addon by its manifest URL (e.g. from the phone web portal or manual entry).
+    func installAddon(manifestURL urlString: String) async throws {
+        var clean = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.hasPrefix("stremio://") {
+            clean = "https://" + clean.dropFirst("stremio://".count)
+        }
+        if !clean.hasSuffix("/manifest.json") && !clean.contains("manifest.json") {
+            clean = clean.hasSuffix("/") ? clean + "manifest.json" : clean + "/manifest.json"
+        }
+        guard let url = URL(string: clean) else {
+            throw NSError(domain: "StremioX", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid manifest URL"])
+        }
+        let (data, resp) = try await URLSession.shared.data(from: url)
+        guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw NSError(domain: "StremioX", code: 404, userInfo: [NSLocalizedDescriptionKey: "Could not fetch manifest (HTTP error)"])
+        }
+        guard let manifest = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let _ = manifest["id"] as? String else {
+            throw NSError(domain: "StremioX", code: 422, userInfo: [NSLocalizedDescriptionKey: "Invalid Stremio addon manifest"])
+        }
+        let descriptor: [String: Any] = [
+            "manifest": manifest,
+            "transportUrl": url.absoluteString,
+            "flags": ["official": false, "protected": false]
+        ]
+        dispatchCtx(["action": "InstallAddon", "args": descriptor])
+        dispatchCtx(["action": "PushAddonsToAPI"])
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshAddons()
+            self?.loadBoard()
+        }
     }
 
     /// stremio-core's storage schema version, a smoke check that the FFI is wired end-to-end.

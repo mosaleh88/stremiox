@@ -8,7 +8,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
     var id = UUID()
     var name: String
     var avatar: String                 // an emoji
-    var accentID: String = "ember"
+    var accentID: String = "ocean"
     var oled: Bool = false
     /// App UI text scale (0.80 to 1.40). Per-profile appearance, mirrored into ThemeManager on
     /// switch alongside accent/oled, so a Kids profile can run big text without changing an adult's.
@@ -224,7 +224,7 @@ final class ProfileStore: ObservableObject {
     /// appearance field only touches here and captureTheme().
     private func applyTheme(_ profile: UserProfile) {
         let tm = ThemeManager.shared
-        tm.accentID = profile.accentID
+        tm.accentID = (profile.accentID == "ember") ? "ocean" : profile.accentID
         tm.oled = profile.oled
         tm.textScale = min(max(profile.textScale, ThemeManager.textScaleRange.lowerBound),
                            ThemeManager.textScaleRange.upperBound)
@@ -251,7 +251,7 @@ final class ProfileStore: ObservableObject {
         return UserProfile.PlaybackPrefs(
             audioLang: d.string(forKey: TrackPreferences.Key.audio) ?? lang,
             subtitleLang: d.string(forKey: TrackPreferences.Key.subtitle) ?? lang,
-            forcedPolicy: d.string(forKey: TrackPreferences.Key.forced) ?? TrackPreferences.ForcedPolicy.forced.rawValue,
+            forcedPolicy: d.string(forKey: TrackPreferences.Key.forced) ?? TrackPreferences.ForcedPolicy.always.rawValue,
             subFont: d.string(forKey: SubtitleStyle.Key.font) ?? SubtitleStyle.defaultFont,
             subSize: d.string(forKey: SubtitleStyle.Key.size) ?? SubtitleStyle.defaultSize,
             subColor: d.string(forKey: SubtitleStyle.Key.color) ?? SubtitleStyle.defaultColor,

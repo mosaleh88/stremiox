@@ -1030,6 +1030,39 @@ struct PlayerScreen: View {
             guard addonSubsKey == key else { return }   // episode changed mid-fetch
             addonSubs = subs
             if panel == .subtitles { panelRows = rows(for: .subtitles) }
+            autoSelectAddonSubtitleIfNeeded()
+        }
+    }
+
+    private func autoSelectAddonSubtitleIfNeeded() {
+        let prefs = TrackPreferences.current
+        guard prefs.forcedPolicy != .off else { return }
+        guard !addonSubs.isEmpty else { return }
+        let prefLangs = prefs.subtitleLanguages
+
+        if let current = subtitleTracks.first(where: { $0.selected && $0.id >= 0 }),
+           prefLangs.contains(where: { TrackSelector.matches(current.lang, $0) }) {
+            return
+        }
+
+        let bestSub = addonSubs.first { sub in
+            prefLangs.contains { TrackSelector.matches(sub.lang, $0) }
+        }
+
+        let subToSelect: AddonSubtitle?
+        if let bestSub = bestSub {
+            subToSelect = bestSub
+        } else if !subtitleTracks.contains(where: { $0.selected && $0.id >= 0 }) {
+            subToSelect = addonSubs.first { sub in
+                TrackSelector.matches(sub.lang, "en")
+            } ?? addonSubs.first
+        } else {
+            subToSelect = nil
+        }
+
+        if let sub = subToSelect, !addedSubURLs.contains(sub.url) {
+            coordinator.player?.addExternalSubtitle(url: sub.url, title: sub.addonName, lang: sub.lang)
+            addedSubURLs.insert(sub.url)
         }
     }
 

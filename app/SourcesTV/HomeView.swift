@@ -7,7 +7,10 @@ struct HomeView: View {
     @EnvironmentObject private var theme: ThemeManager
     @EnvironmentObject private var account: StremioAccount
     @EnvironmentObject private var profiles: ProfileStore
+    @ObservedObject private var appSettings = AppSettings.shared
     @StateObject private var focusModel = FocusedItemModel()
+    @State private var topTrendingItems: [TMDBMediaItem] = []
+    @State private var trendingBackdrops: [String: URL] = [:]
 
     /// The owner profile rides the account's Continue Watching; overlay profiles ride their own
     /// private synced history.
@@ -15,25 +18,143 @@ struct HomeView: View {
         profiles.activeUsesEngineHistory ? core.continueWatching : profiles.cwItems
     }
 
+    private var heroCarouselItems: [HeroCarouselItem] {
+        if !topTrendingItems.isEmpty {
+            return topTrendingItems.prefix(6).map { tm in
+                HeroCarouselItem(
+                    id: tm.imdbId ?? tm.id,
+                    type: tm.type,
+                    title: tm.title,
+                    subtitle: nil,
+                    overview: tm.overview,
+                    backdropURL: tm.backdropURL,
+                    posterURL: tm.posterURL,
+                    rating: tm.rating,
+                    releaseYear: tm.releaseYear,
+                    genres: [],
+                    meta: tm.meta
+                )
+            }
+        }
+        var items: [HeroCarouselItem] = []
+        for row in core.boardRows.prefix(1) {
+            for it in row.items.prefix(6) {
+                let backdrop = trendingBackdrops[it.id]
+                let meta = PlaybackMeta(libraryId: it.id, videoId: it.id, type: it.type, name: it.name, poster: it.poster, season: nil, episode: nil)
+                items.append(HeroCarouselItem(
+                    id: it.id,
+                    type: it.type,
+                    title: it.name,
+                    subtitle: nil,
+                    overview: nil,
+                    backdropURL: backdrop,
+                    posterURL: it.poster.flatMap { URL(string: $0) },
+                    rating: nil,
+                    releaseYear: nil,
+                    genres: [],
+                    meta: meta
+                ))
+            }
+        }
+        return items
+    }
+
+    private var bannerItems: [BannerCardItem] {
+        if !topTrendingItems.isEmpty {
+            return topTrendingItems.prefix(10).enumerated().map { index, tm in
+                BannerCardItem(
+                    id: tm.imdbId ?? tm.id,
+                    type: tm.type,
+                    rank: index + 1,
+                    title: tm.title,
+                    backdropURL: tm.backdropURL,
+                    posterURL: tm.posterURL,
+                    genre: tm.type.capitalized,
+                    meta: tm.meta
+                )
+            }
+        }
+        var list: [BannerCardItem] = []
+        var rank = 1
+        for row in core.boardRows.prefix(1) {
+            for it in row.items.prefix(10) {
+                let backdrop = trendingBackdrops[it.id]
+                let meta = PlaybackMeta(libraryId: it.id, videoId: it.id, type: it.type, name: it.name, poster: it.poster, season: nil, episode: nil)
+                list.append(BannerCardItem(
+                    id: it.id,
+                    type: it.type,
+                    rank: rank,
+                    title: it.name,
+                    backdropURL: backdrop,
+                    posterURL: it.poster.flatMap { URL(string: $0) },
+                    genre: it.type.capitalized,
+                    meta: meta
+                ))
+                rank += 1
+            }
+        }
+        return list
+    }
+
+    private var curatedItems: [CuratedCardItem] {
+        if topTrendingItems.count > 5 {
+            return Array(topTrendingItems.dropFirst(3).prefix(6).enumerated()).map { index, tm in
+                CuratedCardItem(
+                    id: tm.imdbId ?? tm.id,
+                    type: tm.type,
+                    title: tm.title,
+                    backdropURL: tm.backdropURL,
+                    posterURL: tm.posterURL,
+                    tag: index == 0 ? "New" : nil,
+                    subtag: index == 0 ? "Another Season Is Coming" : (index == 1 ? "#1 Show on StremioX" : nil),
+                    genres: [],
+                    meta: tm.meta
+                )
+            }
+        }
+        return []
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // The living backdrop: whichever poster is focused fills the screen with its
-                // artwork and details. Pure presentation, never focusable, so pressing up from
-                // the rails lands straight on the tab bar.
-                // detailsBottom = strip height (470) + a breathing gap, so the synopsis can never
-                // run into the rail header regardless of tab-bar safe-area shifts.
-                BrowseHeroBackdrop(model: focusModel, detailsBottom: 520)
-                // The rails live in a bottom strip. The focus engine centers focused rows inside
-                // THIS viewport, so they are geometrically incapable of riding up over the hero.
+                // If Hero Carousel mode is enabled, it takes the top stage; otherwise use living backdrop
+                if !appSettings.heroCarousel {
+                    BrowseHeroBackdrop(model: focusModel, detailsBottom: 520)
+                }
+
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Theme.Space.lg) {
+                        if appSettings.heroCarousel && !heroCarouselItems.isEmpty {
+                            HeroCarouselView(items: heroCarouselItems)
+                                .padding(.bottom, Theme.Space.sm)
+                        }
+
+                        if appSettings.fullBleedBanners && !bannerItems.isEmpty {
+                            FullBleedBannerRail(title: "Top 10 Today", items: bannerItems)
+                        }
+
                         if !continueWatching.isEmpty {
-                            // The long-press menu is safe on every profile now: Details is pure
-                            // navigation, and the dismiss routes into the overlay profile's own
-                            // history inside CoreBridge.removeFromLibrary.
                             CoreContinueWatchingRow(items: continueWatching, focusModel: focusModel)
                         }
+
+                        if !curatedItems.isEmpty {
+                            CuratedCategoryRail(
+                                eyebrow: "FEATURED DRAMA & THRILLERS",
+                                title: "Criminally Entertaining",
+                                items: curatedItems
+                            )
+                        }
+
+                        if appSettings.smartRecommendations, let first = continueWatching.first {
+                            SmartRecommendationsRail(
+                                baseTitle: first.name,
+                                baseId: first.id,
+                                baseType: "series",
+                                focusModel: focusModel
+                            )
+                        }
+
                         ForEach(core.boardRows) { row in
                             CoreCatalogRowView(row: row, focusModel: focusModel)
                         }
@@ -44,15 +165,28 @@ struct HomeView: View {
                     .padding(.top, Theme.Space.sm)
                     .padding(.bottom, Theme.Space.xl)
                 }
-                .heroBottomStrip()
-            }
-            .overlay(alignment: .topLeading) {
-                header
-                    .padding(.top, 44)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .ignoresSafeArea()   // absolute top-left, clear of the hero title below
+                .modifier(HomeScrollModifier(heroCarousel: appSettings.heroCarousel))
             }
             .background(Theme.Palette.canvas.ignoresSafeArea())
+        }
+        .task {
+            let trending = await MetadataService.shared.fetchTopTrending()
+            await MainActor.run {
+                self.topTrendingItems = trending
+            }
+        }
+        .task(id: core.boardRows.first?.id) {
+            if let firstRow = core.boardRows.first {
+                for it in firstRow.items.prefix(10) {
+                    if trendingBackdrops[it.id] == nil {
+                        if let u = await MetadataService.shared.resolveBackdrop(for: it.id) {
+                            await MainActor.run {
+                                self.trendingBackdrops[it.id] = u
+                            }
+                        }
+                    }
+                }
+            }
         }
         .onAppear { configureMetaSources(); seed() }
         .onChange(of: core.boardRows.first?.id) { seed() }
@@ -73,17 +207,6 @@ struct HomeView: View {
         focusModel.seedIfEmpty(continueWatching.first?.focusedHero
                                ?? core.boardRows.first?.items.first?.focusedHero)
         focusModel.warm(continueWatching.map(\.focusedHero))
-    }
-
-    /// Serif wordmark, the editorial signature: warm-white "Stremio" with an ember "X".
-    private var header: some View {
-        HStack(spacing: 0) {
-            Text("Stremio").foregroundStyle(Theme.Palette.textPrimary)
-            Text("X").foregroundStyle(Theme.Palette.accent)
-            Spacer()
-        }
-        .font(Theme.Typography.wordmark)
-        .padding(.horizontal, Theme.Space.screenEdge)
     }
 }
 
@@ -121,14 +244,11 @@ struct CoreContinueWatchingRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: Theme.Space.lg) {
                     ForEach(items) { item in
-                        PosterCard(title: item.name, poster: item.poster,
-                                   type: item.type, id: item.id, progress: item.progress,
-                                   menu: menu,
-                                   onFocus: focusModel.map { model in
-                                       { model.focus(item.focusedHero) }
-                                   },
-                                   directPlay: directResume(item),
-                                   onDetails: { detailTarget = CWDetailTarget(id: item.id, type: item.type) })
+                        LandscapeCWCard(
+                            item: item,
+                            directPlay: directResume(item),
+                            onDetails: { detailTarget = CWDetailTarget(id: item.id, type: item.type) }
+                        )
                     }
                 }
                 .padding(.horizontal, Theme.Space.screenEdge)
@@ -156,6 +276,17 @@ struct CoreContinueWatchingRow: View {
                                    season: entry.season, episode: entry.episode),
                 episodes: [], sourceHint: entry.qualityText, torrent: entry.torrent ?? false,
                 headers: entry.headers)
+        }
+    }
+}
+
+private struct HomeScrollModifier: ViewModifier {
+    let heroCarousel: Bool
+    func body(content: Content) -> some View {
+        if heroCarousel {
+            content
+        } else {
+            content.heroBottomStrip()
         }
     }
 }

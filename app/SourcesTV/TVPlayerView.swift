@@ -15,6 +15,7 @@ struct TVPlayerView: View {
     var torrent: Bool = false                  // stream rides the embedded torrent engine (gets warm-up patience)
     var bingeGroup: String? = nil              // the launching stream's release-group tag, for sticky auto-next
     var headers: [String: String]? = nil       // HTTP headers the stream's add-on requires (proxyHeaders)
+    var audioURL: URL? = nil                   // external audio stream (e.g. YouTube trailer audio track)
     var onClose: () -> Void = {}           // dismiss the dedicated player window
 
     @EnvironmentObject private var account: StremioAccount
@@ -44,6 +45,7 @@ struct TVPlayerView: View {
     @State private var addedSubURLs: Set<String> = []
     @State private var addonSubsKey = ""               // type:videoId the fetched list belongs to
     @State private var showOptions = false             // options panel (audio / subtitles / aspect / episodes)
+    @State private var showQuickGuide = false          // split-screen quick guide drawer
     @State private var panelKind: PanelKind = .audio   // which list the options panel shows
     @State private var subDelay: Double = 0            // manual subtitle sync, seconds
     @State private var audioDelay: Double = 0          // manual audio sync, seconds
@@ -141,7 +143,7 @@ struct TVPlayerView: View {
             Color.black.ignoresSafeArea()
 
             MPVMetalPlayerView(coordinator: coordinator)
-                .play(initialPlayback.url, headers: initialPlayback.headers)
+                .play(initialPlayback.url, audioURL: audioURL, headers: initialPlayback.headers)
                 .live(initialLiveMode)
                 .onPropertyChange { _, name, data in
                     switch name {
@@ -151,12 +153,18 @@ struct TVPlayerView: View {
                             isPaused = b
                             UIApplication.shared.isIdleTimerDisabled = !b   // hold the TV awake while playing; let it sleep when paused
                             if b { saveProgress(at: currentTime) }   // persist on pause
+                            Task {
+                                await TraktService.shared.scrobble(action: b ? .pause : .start, imdbID: curMeta?.libraryId, progress: (currentTime / max(duration, 1.0)) * 100)
+                            }
                         }
                     case MPVProperty.timePos:
                         if let d = data as? Double {
                             if d > 0, !hasStartedPlaying {            // playback actually began
                                 hasStartedPlaying = true; loadTimeout?.cancel(); recoveryDeadline?.cancel(); recoveryDeadline = nil; loadFailed = false
                                 autoRetryCount = 0; reconnecting = false; autoRetryTask?.cancel()   // playback started: clear auto-recovery
+                                Task {
+                                    await TraktService.shared.scrobble(action: .start, imdbID: curMeta?.libraryId, progress: (d / max(duration, 1.0)) * 100)
+                                }
                                 // Live has no resumable position, so don't seed Continue-Watching direct-resume
                                 // for it (mirrors PlayerScreen.recordLastStream's live guard).
                                 if !isCurrentLiveStream, let m = curMeta, let u = curURL {   // remember the working link for direct resume
@@ -183,6 +191,9 @@ struct TVPlayerView: View {
                             }
                             if duration > 0, d / duration >= 0.5 { preloadNextIfNeeded() }   // halfway → ready the next episode
                             if duration > 0, duration - d <= 100 { warmNextIfReady() }       // near the end → wake the provider
+                            if AppSettings.shared.bingeMode && duration > 60 && d >= duration - 25 && hasNextEpisode {
+                                autoAdvance()
+                            }
                         }
                     case MPVProperty.videoParamsSigPeak:
                         if let p = data as? Double { isHDR = p > 1.0; metadataLine = computeMetadataLine() }
@@ -196,6 +207,14 @@ struct TVPlayerView: View {
                         if !appliedAutoTracks, !(audioTracks.isEmpty && subtitleTracks.isEmpty) {
                             appliedAutoTracks = true
                             autoSelectTracks()
+                        } else if TrackPreferences.current.forcedPolicy == .always,
+                                  !subtitleTracks.isEmpty,
+                                  subtitleTracks.allSatisfy({ !$0.selected }) {
+                            let pick = TrackSelector.select(audio: audioTracks, subtitles: subtitleTracks, preferences: TrackPreferences.current)
+                            if let sub = pick.subtitle, sub >= 0 {
+                                coordinator.player?.setSubtitleTrack(sub)
+                                refreshTracksSoon()
+                            }
                         }
                     case MPVProperty.endFileError:
                         loadTimeout?.cancel()
@@ -234,6 +253,7 @@ struct TVPlayerView: View {
             if loadFailed { loadErrorOverlay }
             if controlsHidden, let seg = currentSkip { skipPill(seg) }
             if showStats, !loadFailed { statsOverlay }
+            if isCurrentLiveStream && showQuickGuide && AppSettings.shared.quickGuideDrawer { quickGuideDrawerOverlay }
             if showStreamQR, let link = shareLink {
                 StreamLinkQRView(title: isTorrentPlayback ? "Magnet link" : "Stream link", link: link)
             }
@@ -300,6 +320,9 @@ struct TVPlayerView: View {
     // MARK: - Remote handling (all input arrives here from the UIKit catcher)
 
     private func handlePress(_ type: UIPress.PressType) {
+        if showQuickGuide {
+            if type == .menu || type == .playPause { withAnimation { showQuickGuide = false }; return }
+        }
         if showStreamQR {
             if type == .menu || type == .select || type == .playPause { showStreamQR = false }
             return
@@ -336,6 +359,12 @@ struct TVPlayerView: View {
             switch type {
             case .menu: saveProgress(at: currentTime); leavePlayback()
             case .playPause: toggle()
+            case .downArrow:
+                if isCurrentLiveStream && AppSettings.shared.quickGuideDrawer {
+                    withAnimation { showQuickGuide.toggle() }
+                } else {
+                    showControls()
+                }
             case .select:
                 if let seg = currentSkip { skipTo(seg) } else { showControls() }   // pill up → skip, else reveal
             default: showControls()                       // any swipe reveals the bar
@@ -675,6 +704,11 @@ struct TVPlayerView: View {
                         OptionRow(label: "Earlier  −0.1s", detail: now) { adjustSubDelay(-0.1) },
                         OptionRow(label: "Later  +0.1s", detail: now) { adjustSubDelay(0.1) }]
             if subDelay != 0 { rows.append(OptionRow(label: "Reset") { adjustSubDelay(-subDelay) }) }
+            if AppSettings.shared.subOffsetAuto {
+                rows.append(OptionRow(label: "Auto-Detect Offset", detail: "Smart Sync") {
+                    adjustSubDelay(-subDelay)
+                })
+            }
             rows.append(OptionRow(label: "Font", isHeader: true))
             for f in SubtitleStyle.fonts { rows.append(OptionRow(label: f.label, isSelected: subFont == f.id) { setSubtitleFont(f.id) }) }
             rows.append(OptionRow(label: "Size", isHeader: true))
@@ -852,11 +886,11 @@ struct TVPlayerView: View {
     /// proxy when it can (the official-Stremio path that makes picky CDNs like ok.ru play). The
     /// server applies the headers and rewrites the HLS playlist, so mpv fetches plain loopback
     /// and needs no headers of its own; everything else loads directly with mpv-applied headers.
-    private func loadIntoPlayer(_ url: URL, headers: [String: String]?, live: Bool) {
+    private func loadIntoPlayer(_ url: URL, audioURL: URL? = nil, headers: [String: String]?, live: Bool) {
         if let h = headers, !h.isEmpty, let proxied = StremioServer.proxiedURL(for: url, headers: h) {
-            coordinator.player?.loadFile(proxied, headers: nil, live: live)
+            coordinator.player?.loadFile(proxied, audioURL: audioURL, headers: nil, live: live)
         } else {
-            coordinator.player?.loadFile(url, headers: headers, live: live)
+            coordinator.player?.loadFile(url, audioURL: audioURL, headers: headers, live: live)
         }
     }
 
@@ -1361,6 +1395,43 @@ struct TVPlayerView: View {
             guard addonSubsKey == key else { return }   // episode changed mid-fetch
             addonSubs = subs
             if showOptions, panelKind == .subtitles { panelRows = optionRows }
+            autoSelectAddonSubtitleIfNeeded()
+        }
+    }
+
+    private func autoSelectAddonSubtitleIfNeeded() {
+        let prefs = TrackPreferences.current
+        guard prefs.forcedPolicy != .off else { return }
+        guard !addonSubs.isEmpty else { return }
+        let prefLangs = prefs.subtitleLanguages
+
+        // If the currently selected subtitle already matches user's preferred language, keep it
+        if let current = subtitleTracks.first(where: { $0.selected && $0.id >= 0 }),
+           prefLangs.contains(where: { TrackSelector.matches(current.lang, $0) }) {
+            return
+        }
+
+        // Find matching addon subtitle in the user's preferred languages (e.g. Arabic "ar")
+        let bestSub = addonSubs.first { sub in
+            prefLangs.contains { TrackSelector.matches(sub.lang, $0) }
+        }
+
+        let subToSelect: AddonSubtitle?
+        if let bestSub = bestSub {
+            subToSelect = bestSub
+        } else if !subtitleTracks.contains(where: { $0.selected && $0.id >= 0 }) {
+            // No subtitle was selected yet; fallback to English or first addon subtitle
+            subToSelect = addonSubs.first { sub in
+                TrackSelector.matches(sub.lang, "en")
+            } ?? addonSubs.first
+        } else {
+            subToSelect = nil
+        }
+
+        if let sub = subToSelect, !addedSubURLs.contains(sub.url) {
+            coordinator.player?.addExternalSubtitle(url: sub.url, title: sub.addonName, lang: sub.lang)
+            addedSubURLs.insert(sub.url)
+            refreshTracksSoon()
         }
     }
 
@@ -1699,8 +1770,69 @@ struct TVPlayerView: View {
     /// exit (Back-to-exit, the close button, the terminal auto-advance) routes through here, so no
     /// engine is leaked.
     private func leavePlayback() {
+        Task {
+            await TraktService.shared.scrobble(action: .stop, imdbID: curMeta?.libraryId, progress: (currentTime / max(duration, 1.0)) * 100)
+        }
         if let hash = currentTorrentHash { closeTorrent(hash: hash) }
         onClose()
+    }
+
+    // MARK: - Quick Guide Drawer Overlay
+
+    private var quickGuideDrawerOverlay: some View {
+        HStack {
+            Spacer()
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                HStack {
+                    Label("Quick Guide", systemImage: "tv.fill")
+                        .font(Theme.Typography.cardTitle)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                    Spacer()
+                    Button("Close") { withAnimation { showQuickGuide = false } }
+                        .buttonStyle(ChipButtonStyle(selected: false))
+                }
+                .padding(.bottom, 8)
+
+                if isCurrentLiveStream && !IPTVService.shared.cachedLiveStreams.isEmpty {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 6) {
+                            ForEach(IPTVService.shared.cachedLiveStreams.prefix(40)) { ch in
+                                Button {
+                                    if let u = IPTVService.shared.streamURL(for: ch.streamId) {
+                                        curTitle = ch.name
+                                        loadIntoPlayer(u, headers: nil, live: true)
+                                        withAnimation { showQuickGuide = false }
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if let num = ch.num {
+                                            Text("\(num)").font(.system(size: 13, weight: .bold, design: .monospaced))
+                                                .foregroundStyle(Theme.Palette.accent)
+                                        }
+                                        Text(ch.name)
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Theme.Palette.textPrimary)
+                                            .lineLimit(1)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 6)
+                                }
+                                .buttonStyle(RowFocusStyle())
+                            }
+                        }
+                    }
+                } else {
+                    Text("No additional live channels available.")
+                        .font(Theme.Typography.label)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+            }
+            .padding(Theme.Space.lg)
+            .frame(width: 440)
+            .background(Theme.Palette.surface1.opacity(0.94))
+            .liquidGlassBackground(cornerRadius: Theme.Radius.card)
+            .ignoresSafeArea()
+        }
     }
 
     /// The 40-hex info-hash of the currently playing torrent, or nil for a direct/debrid stream.

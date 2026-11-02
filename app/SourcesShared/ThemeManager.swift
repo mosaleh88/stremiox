@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 #if canImport(UIKit)
 import UIKit
 #elseif canImport(AppKit)
@@ -52,12 +53,47 @@ final class ThemeManager: ObservableObject {
     private static let accentKey = "stremiox.theme.accent"
     private static let oledKey = "stremiox.theme.oled"
     private static let textScaleKey = "stremiox.theme.textScale"
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
-        accentID = UserDefaults.standard.string(forKey: Self.accentKey) ?? "ember"
+        let savedAccent = UserDefaults.standard.string(forKey: Self.accentKey)
+        accentID = (savedAccent == nil || savedAccent == "ember") ? "ocean" : savedAccent!
         oled = UserDefaults.standard.bool(forKey: Self.oledKey)
         let saved = UserDefaults.standard.object(forKey: Self.textScaleKey) as? Double
         textScale = saved.map { min(max($0, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound) } ?? 1.0
+
+        AppSettings.shared.$appearanceMode
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.objectWillChange.send()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    var isLight: Bool {
+        switch AppSettings.shared.appearanceMode {
+        case .light: return true
+        case .dark: return false
+        case .auto:
+            #if canImport(UIKit)
+            return UIScreen.main.traitCollection.userInterfaceStyle == .light
+            #else
+            return false
+            #endif
+        }
+    }
+
+    var textPrimary: Color {
+        isLight ? themeRGB(0.08, 0.08, 0.09) : themeRGB(0.965, 0.945, 0.914)
+    }
+
+    var textSecondary: Color {
+        isLight ? themeRGB(0.38, 0.38, 0.42) : themeRGB(0.737, 0.694, 0.631)
+    }
+
+    var textTertiary: Color {
+        isLight ? themeRGB(0.55, 0.55, 0.60) : themeRGB(0.620, 0.580, 0.520)
     }
 
     /// Nudge the text scale one step within range (the tvOS Settings +/- buttons; the iOS Settings
@@ -68,11 +104,11 @@ final class ThemeManager: ObservableObject {
         textScale = (next * 100).rounded() / 100
     }
 
-    /// Eight curated accents. Ember is the default and matches the original ember design.
+    /// Eight curated accents. Cupertino (Ocean) is the default matching the native Apple TV design.
     static let accents: [AccentOption] = [
-        AccentOption(id: "ember",   label: "Ember",   base: themeRGB(0.949, 0.471, 0.294), bright: themeRGB(1.000, 0.569, 0.388)),
-        AccentOption(id: "ocean",   label: "Ocean",   base: themeRGB(0.298, 0.565, 0.886), bright: themeRGB(0.435, 0.690, 0.984)),
-        AccentOption(id: "forest",  label: "Forest",  base: themeRGB(0.376, 0.706, 0.443), bright: themeRGB(0.478, 0.831, 0.553)),
+        AccentOption(id: "ocean",   label: "Cupertino", base: themeRGB(0.040, 0.520, 1.000), bright: themeRGB(0.220, 0.680, 1.000)),
+        AccentOption(id: "ember",   label: "Ember",     base: themeRGB(0.949, 0.471, 0.294), bright: themeRGB(1.000, 0.569, 0.388)),
+        AccentOption(id: "forest",  label: "Forest",    base: themeRGB(0.376, 0.706, 0.443), bright: themeRGB(0.478, 0.831, 0.553)),
         AccentOption(id: "royal",   label: "Royal",   base: themeRGB(0.580, 0.451, 0.902), bright: themeRGB(0.694, 0.561, 0.984)),
         AccentOption(id: "crimson", label: "Crimson", base: themeRGB(0.886, 0.310, 0.357), bright: themeRGB(0.984, 0.420, 0.463)),
         AccentOption(id: "gold",    label: "Gold",    base: themeRGB(0.886, 0.706, 0.290), bright: themeRGB(0.980, 0.804, 0.400)),
@@ -110,13 +146,12 @@ final class ThemeManager: ObservableObject {
         return 0.2126 * Double(r) + 0.7152 * Double(g) + 0.0722 * Double(b)
     }
 
-    // Chrome: a dark near-black tinted toward the accent's hue (so "Warm" now follows the accent —
-    // Ocean reads cool, Forest green, Mono near-neutral), or true black for OLED / AMOLED panels.
-    var canvas: Color   { oled ? themeRGB(0, 0, 0)             : tintedDark(0.085) }
-    var surface1: Color { oled ? themeRGB(0.055, 0.055, 0.057) : tintedDark(0.130) }
-    var surface2: Color { oled ? themeRGB(0.094, 0.094, 0.098) : tintedDark(0.175) }
-    var surface3: Color { oled ? themeRGB(0.141, 0.141, 0.149) : tintedDark(0.225) }
-    var hairline: Color { oled ? themeRGB(0.196, 0.196, 0.204) : tintedDark(0.260) }
+    // Chrome: support Dark (warm near-black/OLED) and Light (Apple TV white), or system auto
+    var canvas: Color   { isLight ? themeRGB(0.95, 0.95, 0.97) : (oled ? themeRGB(0, 0, 0)             : tintedDark(0.085)) }
+    var surface1: Color { isLight ? themeRGB(1.0, 1.0, 1.0)     : (oled ? themeRGB(0.055, 0.055, 0.057) : tintedDark(0.130)) }
+    var surface2: Color { isLight ? themeRGB(0.90, 0.90, 0.93) : (oled ? themeRGB(0.094, 0.094, 0.098) : tintedDark(0.175)) }
+    var surface3: Color { isLight ? themeRGB(0.84, 0.84, 0.88) : (oled ? themeRGB(0.141, 0.141, 0.149) : tintedDark(0.225)) }
+    var hairline: Color { isLight ? themeRGB(0.80, 0.80, 0.84) : (oled ? themeRGB(0.196, 0.196, 0.204) : tintedDark(0.260)) }
 
     /// A dark surface at `brightness`, hued toward the current accent. Subtle (like the original warm
     /// near-black) but it now shifts with the chosen accent. Saturation is half the accent's, capped, so

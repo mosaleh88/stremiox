@@ -81,8 +81,8 @@ struct TrackPreferences: Equatable {
         return TrackPreferences(
             audioLanguages: list(d.string(forKey: Key.audio)) ?? deviceLanguages,
             subtitleLanguages: list(d.string(forKey: Key.subtitle)) ?? deviceLanguages,
-            forcedPolicy: ForcedPolicy(rawValue: d.string(forKey: Key.forced) ?? "") ?? .forced,
-            rejectTerms: list(d.string(forKey: Key.reject)) ?? ["commentary", "sdh"]
+            forcedPolicy: ForcedPolicy(rawValue: d.string(forKey: Key.forced) ?? "") ?? .always,
+            rejectTerms: list(d.string(forKey: Key.reject)) ?? ["commentary"]
         )
     }
 

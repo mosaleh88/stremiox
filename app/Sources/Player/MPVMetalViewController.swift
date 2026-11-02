@@ -38,6 +38,7 @@ final class MPVMetalViewController: PlatformViewController {
     lazy var queue = DispatchQueue(label: "mpv", qos: .userInitiated)
     
     var playUrl: URL?
+    var playAudioUrl: URL?
     var playHeaders: [String: String]?
     var playUrlLive = false
     var onSingleTap: (() -> Void)?
@@ -85,7 +86,7 @@ final class MPVMetalViewController: PlatformViewController {
         setupMpv()
         
         if let url = playUrl {
-            loadFile(url, headers: playHeaders, live: playUrlLive)
+            loadFile(url, audioURL: playAudioUrl, headers: playHeaders, live: playUrlLive)
         }
     }
     
@@ -238,7 +239,8 @@ final class MPVMetalViewController: PlatformViewController {
 #if os(macOS)
         checkError(mpv_set_option_string(mpv, "input-media-keys", "yes"))
 #endif
-        checkError(mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &metalLayer))
+        var metalLayerID = Int64(bitPattern: UInt64(UInt(bitPattern: Unmanaged.passUnretained(metalLayer).toOpaque())))
+        checkError(mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &metalLayerID))
         checkError(mpv_set_option_string(mpv, "subs-match-os-language", "yes"))
         checkError(mpv_set_option_string(mpv, "subs-fallback", "yes"))
         // Point libass at the bundled fonts for non-Latin subtitle rendering. Every target ships
@@ -481,6 +483,7 @@ final class MPVMetalViewController: PlatformViewController {
 
     func loadFile(
         _ url: URL,
+        audioURL: URL? = nil,
         headers: [String: String]? = nil,
         live: Bool = false
     ) {
@@ -488,6 +491,9 @@ final class MPVMetalViewController: PlatformViewController {
         var options = [String]()
 
         args.append("replace")
+        if let audio = audioURL {
+            options.append("audio-file=\(audio.absoluteString)")
+        }
 
         // Per-stream HTTP headers (behaviorHints.proxyHeaders): some add-ons front CDNs that
         // require a specific Referer or a browser User-Agent; without them the server rejects

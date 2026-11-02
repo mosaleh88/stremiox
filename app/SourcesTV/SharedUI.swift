@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import AVKit
 
 /// Shared, system-aligned building blocks: the poster artwork, the focusable poster card used by every
 /// rail and grid, and the empty / not-signed-in state. See Theme.swift for the tokens these use.
@@ -314,6 +315,34 @@ extension View {
     }
 }
 
+/// Silent looping video preview for backdrop trailers
+struct BackdropVideoPlayer: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        let player = AVPlayer(url: url)
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { [weak player] _ in
+            player?.seek(to: .zero)
+            player?.play()
+        }
+        controller.player = player
+        controller.showsPlaybackControls = false
+        controller.videoGravity = .resizeAspectFill
+        controller.view.backgroundColor = .clear
+        player.play()
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
+}
+
 /// The browse pages' background layer: the focused title's artwork at full bleed with a detail
 /// block (title, meta line, synopsis) on the upper-left band. Content scrolls over it.
 struct BrowseHeroBackdrop: View {
@@ -324,14 +353,24 @@ struct BrowseHeroBackdrop: View {
     /// even as the tab bar shows or hides and shifts the top safe area.
     var detailsBottom: CGFloat? = nil
     @EnvironmentObject private var theme: ThemeManager
+    @State private var trailerURL: URL? = nil
+    @State private var trailerTask: Task<Void, Never>? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             Theme.Palette.canvas.ignoresSafeArea()
             if let hero = model.hero {
-                FullBleedBackdrop(url: hero.backdrop)
-                    .id(hero.id)
-                    .transition(.opacity)
+                ZStack {
+                    FullBleedBackdrop(url: hero.backdrop)
+                    if let trailerURL {
+                        BackdropVideoPlayer(url: trailerURL)
+                            .ignoresSafeArea()
+                            .transition(.opacity)
+                    }
+                }
+                .id(hero.id)
+                .transition(.opacity)
+
                 if model.detailsVisible {
                     positioned(detailsBlock(hero)
                         .frame(maxWidth: 860, alignment: .leading)
@@ -343,8 +382,24 @@ struct BrowseHeroBackdrop: View {
         }
         .animation(.easeOut(duration: 0.35), value: model.hero?.id)
         .animation(.easeOut(duration: 0.25), value: model.detailsVisible)
-        // No ignoresSafeArea here: the image layer handles its own full-bleed, and keeping this
-        // container inside the safe area lets the tab bar reclaim focus when you press up at the top.
+        .onChange(of: model.hero?.id) { newId in
+            trailerTask?.cancel()
+            trailerURL = nil
+            guard AppSettings.shared.backdropTrailers, let newId else { return }
+            trailerTask = Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if Task.isCancelled { return }
+                if let u = await MetadataService.shared.resolveTrailerURL(for: newId) {
+                    if !Task.isCancelled {
+                        await MainActor.run {
+                            withAnimation(.easeIn(duration: 0.5)) {
+                                self.trailerURL = u
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder private func positioned<Content: View>(_ content: Content) -> some View {
@@ -389,6 +444,38 @@ struct BrowseHeroBackdrop: View {
     }
 }
 
+/// Poster card label that observes tvOS focus to apply Apple TV specular rim highlight and title brightening.
+private struct PosterCardLabel: View {
+    let title: String
+    let poster: String?
+    let width: CGFloat
+    let progress: Double?
+    let onFocus: (() -> Void)?
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            PosterArt(poster, width: width)
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .strokeBorder(Color.white.opacity(isFocused ? 1.0 : 0), lineWidth: 3.5)
+                }
+                .overlay(alignment: .bottom) {
+                    if let progress, progress > 0.01 {
+                        ProgressStripe(value: progress).padding(Theme.Space.xs)
+                    }
+                }
+            Text(title)
+                .font(.system(size: 18, weight: isFocused ? .bold : .medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundStyle(isFocused ? Theme.Palette.textPrimary : Theme.Palette.textSecondary)
+                .frame(width: width, alignment: .leading)
+        }
+        .background { if let onFocus { FocusReporter(onFocus: onFocus) } }
+    }
+}
+
 /// The focusable poster + title used in every rail and grid. Navigates to the detail page; crafted
 /// focus (scale + ember glow + lift) comes from `CardFocusStyle`. Optional progress stripe for
 /// in-progress titles.
@@ -423,27 +510,7 @@ struct PosterCard: View {
     }
 
     private var cardLabel: some View {
-        legacyCardLabel
-    }
-
-    private var legacyCardLabel: some View {
-        Group {
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                PosterArt(poster, width: width)
-                    .overlay(alignment: .bottom) {
-                        if let progress, progress > 0.01 {
-                            ProgressStripe(value: progress).padding(Theme.Space.xs)
-                        }
-                    }
-                Text(title)
-                    .font(.system(size: 18, weight: .medium))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .frame(width: width, alignment: .leading)
-            }
-            .background { if let onFocus { FocusReporter(onFocus: onFocus) } }
-        }
+        PosterCardLabel(title: title, poster: poster, width: width, progress: progress, onFocus: onFocus)
     }
 
     /// Long-press actions, fired straight at the engine (`CoreBridge.shared`). Continue Watching and the

@@ -33,7 +33,7 @@ struct iOSSettingsView: View {
     @AppStorage(SubtitleStyle.Key.sizeScale) private var subSizeScale = 1.0
     @AppStorage(SubtitleStyle.Key.color) private var subColor = SubtitleStyle.defaultColor
     @AppStorage(SubtitleStyle.Key.background) private var subBackground = SubtitleStyle.defaultBackground
-    @AppStorage(TrackPreferences.Key.forced) private var prefForced = TrackPreferences.ForcedPolicy.forced.rawValue
+    @AppStorage(TrackPreferences.Key.forced) private var prefForced = TrackPreferences.ForcedPolicy.always.rawValue
     @AppStorage(TrackPreferences.Key.audio) private var prefAudioLang = TrackPreferences.deviceLanguages.first ?? "en"
     @AppStorage(TrackPreferences.Key.subtitle) private var prefSubLang = TrackPreferences.deviceLanguages.first ?? "en"
     @AppStorage(PlaybackSettings.Key.directLinksOnly) private var directLinksOnly = false
