@@ -31,7 +31,7 @@ struct HomeView: View {
                     posterURL: tm.posterURL,
                     rating: tm.rating,
                     releaseYear: tm.releaseYear,
-                    genres: [],
+                    genres: tm.genres,
                     meta: tm.meta
                 )
             }
@@ -46,12 +46,12 @@ struct HomeView: View {
                     type: it.type,
                     title: it.name,
                     subtitle: nil,
-                    overview: nil,
+                    overview: it.description,
                     backdropURL: backdrop,
                     posterURL: it.poster.flatMap { URL(string: $0) },
-                    rating: nil,
-                    releaseYear: nil,
-                    genres: [],
+                    rating: it.imdbRating,
+                    releaseYear: it.releaseInfo,
+                    genres: it.genres ?? [],
                     meta: meta
                 ))
             }

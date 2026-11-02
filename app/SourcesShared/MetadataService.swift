@@ -13,6 +13,7 @@ struct TMDBMediaItem: Identifiable, Hashable {
     let rating: String?
     let releaseYear: String?
     let type: String // "movie" or "series"
+    var genres: [String] = []
 
     var meta: PlaybackMeta {
         PlaybackMeta(
@@ -385,6 +386,7 @@ final class MetadataService: ObservableObject {
                 let rating = item["imdbRating"] as? String
                 let year = (item["year"] as? String) ?? (item["releaseInfo"] as? String)
                 let type = (item["type"] as? String) ?? "movie"
+                let genreList = (item["genre"] as? [String]) ?? (item["genres"] as? [String]) ?? []
                 let backdrop = URL(string: "https://images.metahub.space/background/big/\(imdbId)/img")
 
                 list.append(TMDBMediaItem(
@@ -397,7 +399,8 @@ final class MetadataService: ObservableObject {
                     backdropURL: backdrop,
                     rating: rating,
                     releaseYear: year,
-                    type: type
+                    type: type,
+                    genres: genreList
                 ))
             }
             await MainActor.run {

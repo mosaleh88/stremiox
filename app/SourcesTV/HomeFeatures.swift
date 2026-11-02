@@ -102,23 +102,24 @@ struct HeroCarouselView: View {
                     .frame(height: 840)
 
                     // Page indicator dots at bottom right
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         ForEach(0..<min(items.count, 6), id: \.self) { idx in
                             Capsule()
-                                .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.35))
-                                .frame(width: idx == currentIndex ? 24 : 8, height: 8)
+                                .fill(idx == currentIndex ? Color.white : Color.white.opacity(0.45))
+                                .frame(width: idx == currentIndex ? 28 : 10, height: 10)
+                                .shadow(color: Color.black.opacity(0.6), radius: 4, x: 0, y: 1)
                                 .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentIndex)
                         }
                     }
-                    .padding(.trailing, 60)
-                    .padding(.bottom, 36)
+                    .padding(.trailing, 80)
+                    .padding(.bottom, 74)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
                 // Apple TV Home button at top-left (scrolls off naturally with Hero!)
                 HomePillButton()
-                    .padding(.leading, 54)
-                    .padding(.top, 40)
+                    .padding(.leading, 64)
+                    .padding(.top, 48)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 840)
@@ -146,30 +147,30 @@ struct HeroCarouselView: View {
                 Theme.Palette.surface1
             }
 
-            // Dark gradient on left edge for text contrast
+            // Subtle dark vignette on left edge for text contrast (preserves artwork color)
             LinearGradient(
-                colors: [
-                    Color.black.opacity(0.85),
-                    Color.black.opacity(0.40),
-                    Color.clear
+                stops: [
+                    .init(color: Color.black.opacity(0.65), location: 0.0),
+                    .init(color: Color.black.opacity(0.25), location: 0.40),
+                    .init(color: Color.clear, location: 0.65)
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
 
-            // Dark gradient on bottom edge to blend into canvas
+            // Gentle dark gradient on bottom edge to blend into canvas
             LinearGradient(
-                colors: [
-                    Color.clear,
-                    Theme.Palette.canvas.opacity(0.60),
-                    Theme.Palette.canvas
+                stops: [
+                    .init(color: Color.clear, location: 0.60),
+                    .init(color: Theme.Palette.canvas.opacity(0.50), location: 0.85),
+                    .init(color: Theme.Palette.canvas, location: 1.0)
                 ],
-                startPoint: .center,
+                startPoint: .top,
                 endPoint: .bottom
             )
 
-            // Left-aligned stacked Hero Info Block
-            VStack(alignment: .leading, spacing: 8) {
+            // Left-aligned stacked Hero Info Block (raised ~70pt to respect tvOS safe area)
+            VStack(alignment: .leading, spacing: 10) {
                 // Capsule Badge
                 Text(item.type == "series" ? "SERIES" : "FEATURED")
                     .font(.system(size: 13, weight: .bold))
@@ -178,26 +179,23 @@ struct HeroCarouselView: View {
                     .padding(.vertical, 5)
                     .background(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
 
-                // Large Editorial Title Text
+                // Large Editorial Title Text (bold sans-serif matching Apple TV look)
                 Text(item.title)
-                    .font(.system(size: 50, weight: .black, design: .serif))
+                    .font(.system(size: 54, weight: .heavy, design: .default))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
-                    .shadow(color: .black.opacity(0.85), radius: 8, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.7), radius: 6, x: 0, y: 2)
 
-                // Metadata Line (type, genres, rating)
+                // Metadata Line (type, release year, rating, genres)
                 HStack(spacing: 8) {
-                    Image(systemName: "tv.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.white.opacity(0.85))
                     Text(item.type.capitalized)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
 
                     if let year = item.releaseYear {
                         Text("•").foregroundStyle(Theme.Palette.textTertiary)
                         Text(year)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Theme.Palette.textSecondary)
                     }
 
@@ -208,15 +206,15 @@ struct HeroCarouselView: View {
                                 .font(.system(size: 13))
                                 .foregroundStyle(Color.white.opacity(0.85))
                             Text(rating)
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(Theme.Palette.textPrimary)
                         }
                     }
 
                     if !item.genres.isEmpty {
                         Text("•").foregroundStyle(Theme.Palette.textTertiary)
-                        Text(item.genres.prefix(2).joined(separator: " / "))
-                            .font(.system(size: 15, weight: .semibold))
+                        Text(item.genres.prefix(2).joined(separator: ", "))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Theme.Palette.textSecondary)
                     }
                 }
@@ -277,11 +275,11 @@ struct HeroCarouselView: View {
                     }
                     .buttonStyle(CircleGlassButtonStyle())
                 }
-                .padding(.top, 4)
+                .padding(.top, 6)
                 .focused($isControlsFocused)
             }
-            .padding(.horizontal, 60)
-            .padding(.bottom, 36)
+            .padding(.horizontal, 64)
+            .padding(.bottom, 72)
         }
     }
 }
@@ -298,33 +296,26 @@ struct HomePillButton: View {
                 SidebarState.shared.isOpen = true
             }
         } label: {
-            HStack(spacing: 8) {
-                // Chevron ‹
+            HStack(spacing: 6) {
+                // Back chevron
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.white.opacity(0.85))
 
-                // Circle with house icon
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.20))
-                        .frame(width: 26, height: 26)
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.white)
-                }
-
-                // Text: Home
+                // Single clean label: Home
                 Text("Home")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Color.white)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.95))
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 16)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isFocused ? Color.white.opacity(0.25) : Color.black.opacity(0.45))
+                    .fill(isFocused ? Color.white.opacity(0.28) : Color.black.opacity(0.40))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.white.opacity(isFocused ? 0.35 : 0.12), lineWidth: 1)
             )
             .scaleEffect(isFocused && !reduceMotion ? 1.05 : 1.0)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
