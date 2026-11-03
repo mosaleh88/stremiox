@@ -40,7 +40,7 @@ struct AddonsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Space.lg) {
                     #if os(tvOS)
-                    NavigationPillButton(title: "Add-ons")
+                    Spacer().frame(height: 70)
                     #endif
                     HStack(alignment: .firstTextBaseline) {
                         Text("Add-ons").screenTitleStyle()

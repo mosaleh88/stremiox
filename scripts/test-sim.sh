@@ -26,3 +26,4 @@ xcrun simctl terminate "$DEVICE_ID" com.xtv.tv 2>/dev/null || true
 xcrun simctl launch "$DEVICE_ID" com.xtv.tv
 
 echo "✅ App updated and running on Apple TV Simulator!"
+

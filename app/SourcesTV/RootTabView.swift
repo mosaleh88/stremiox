@@ -116,10 +116,11 @@ struct RootTabView: View {
     @ObservedObject private var sidebarState = SidebarState.shared
     @State private var selectedTab: TabItem = .home
     @FocusState private var sidebarFocusedItem: TabItem?
+    @FocusState private var focusedNavTab: TabItem?
     @State private var resetTokens = [Int](repeating: 0, count: 7)
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        ZStack(alignment: .top) {
             // Main content based on selected tab
             Group {
                 switch selectedTab {
@@ -141,6 +142,14 @@ struct RootTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .disabled(sidebarState.isOpen)
+
+            // Native Apple TV Top Navigation Bar
+            TopNavigationBar(
+                selectedTab: $selectedTab,
+                focusedTab: $focusedNavTab
+            )
+            .opacity(sidebarState.isOpen ? 0 : 1)
+            .zIndex(20)
 
             // Dimmed scrim behind open sidebar
             if sidebarState.isOpen {
@@ -185,18 +194,18 @@ struct RootTabView: View {
     }
 
     private func handleMenuPress() {
-        if !sidebarState.isOpen {
+        if sidebarState.isOpen {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                sidebarState.isOpen = true
+                sidebarState.isOpen = false
             }
-        } else {
-            if selectedTab != .home {
+        } else if focusedNavTab == nil {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                focusedNavTab = selectedTab
+            }
+        } else if selectedTab != .home {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
                 selectedTab = .home
-                sidebarFocusedItem = .home
-            } else {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                    sidebarState.isOpen = false
-                }
+                focusedNavTab = .home
             }
         }
     }

@@ -21,7 +21,7 @@ struct SearchView: View {
     private var results: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.lg) {
-                NavigationPillButton(title: "Search")
+                Spacer().frame(height: 70)
                 Button { showOpenLink = true } label: {
                     Label(directLinksOnly ? "Play a direct link" : "Play a link or magnet", systemImage: "link")
                 }

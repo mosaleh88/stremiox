@@ -8,54 +8,199 @@ import AVKit
 /// Standard poster width across the app. Posters are 2:3, so height is `width * 1.5`.
 let kPosterWidth: CGFloat = 200
 
-// MARK: - Apple TV Navigation Pill Button
+// MARK: - Native Apple TV Top Navigation Bar
 
-struct NavigationPillButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        NavigationPillLabel(configuration: configuration)
+struct TopNavigationBar: View {
+    @Binding var selectedTab: TabItem
+    @FocusState.Binding var focusedTab: TabItem?
+    @EnvironmentObject private var profiles: ProfileStore
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Horizontal Tab Bar Items
+            HStack(spacing: 8) {
+                ForEach(TabItem.allCases) { tab in
+                    TopNavTabButton(
+                        tab: tab,
+                        isSelected: selectedTab == tab,
+                        focusedTab: $focusedTab,
+                        onSelect: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                                selectedTab = tab
+                            }
+                        }
+                    )
+                }
+            }
+
+            Spacer()
+
+            // Real-time Clock
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                Text(timeString(from: timeline.date))
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.65))
+            }
+            .padding(.trailing, 8)
+
+            // Profile Avatar
+            TopNavProfileAvatar(profiles: profiles)
+        }
+        .padding(.horizontal, 64)
+        .padding(.top, 40)
+        .padding(.bottom, 16)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.85),
+                    Color.black.opacity(0.55),
+                    Color.black.opacity(0.18),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 140)
+            .ignoresSafeArea(edges: .top),
+            alignment: .top
+        )
     }
 
-    private struct NavigationPillLabel: View {
+    private func timeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+struct TopNavTabButton: View {
+    let tab: TabItem
+    let isSelected: Bool
+    @FocusState.Binding var focusedTab: TabItem?
+    let onSelect: () -> Void
+
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 7) {
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 15, weight: isFocused || isSelected ? .bold : .semibold))
+                Text(tab.title)
+                    .font(.system(size: 16, weight: isFocused || isSelected ? .bold : .semibold))
+            }
+        }
+        .buttonStyle(TopNavTabButtonStyle(isSelected: isSelected))
+        .focused($focusedTab, equals: tab)
+    }
+}
+
+private struct TopNavTabButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TopNavTabButtonBody(configuration: configuration, isSelected: isSelected)
+    }
+
+    private struct TopNavTabButtonBody: View {
         let configuration: Configuration
+        let isSelected: Bool
         @Environment(\.isFocused) private var isFocused
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+        private var foregroundColor: Color {
+            if isFocused {
+                return Color.black
+            } else if isSelected {
+                return Color.white
+            } else {
+                return Color.white.opacity(0.70)
+            }
+        }
+
+        private var backgroundColor: Color {
+            if isFocused {
+                return Color.white
+            } else if isSelected {
+                return Color.white.opacity(0.20)
+            } else {
+                return Color.clear
+            }
+        }
+
+        private var strokeColor: Color {
+            if !isFocused && isSelected {
+                return Color.white.opacity(0.15)
+            } else {
+                return Color.clear
+            }
+        }
+
+        private var shadowColor: Color {
+            isFocused ? Color.black.opacity(0.40) : Color.clear
+        }
+
+        private var scale: CGFloat {
+            if isFocused && !reduceMotion {
+                return 1.08
+            } else if configuration.isPressed {
+                return 0.96
+            } else {
+                return 1.0
+            }
+        }
+
         var body: some View {
             configuration.label
+                .foregroundStyle(foregroundColor)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    Capsule()
-                        .fill(Color.black.opacity(isFocused ? 0.60 : 0.40))
+                    Capsule().fill(backgroundColor)
                 )
-                .scaleEffect(isFocused && !reduceMotion ? 1.08 : (configuration.isPressed ? 0.96 : 1.0))
-                .shadow(color: isFocused ? Color.black.opacity(0.7) : Color.clear, radius: 14, y: 6)
+                .overlay(
+                    Capsule().strokeBorder(strokeColor, lineWidth: 1)
+                )
+                .scaleEffect(scale)
+                .shadow(color: shadowColor, radius: 12, y: 5)
                 .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
                 .focusEffectDisabled()
         }
     }
 }
 
+private struct TopNavProfileAvatar: View {
+    @ObservedObject var profiles: ProfileStore
+
+    var body: some View {
+        Group {
+            if let active = profiles.active {
+                Circle()
+                    .fill(Theme.Palette.accent)
+                    .overlay(
+                        Text(active.avatar.isEmpty ? String(active.name.prefix(1)).uppercased() : active.avatar)
+                            .font(.system(size: active.avatar.isEmpty ? 13 : 16))
+                    )
+            } else {
+                Circle()
+                    .fill(Theme.Palette.surface2)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                    )
+            }
+        }
+        .frame(width: 34, height: 34)
+    }
+}
+
+// Backward-compatible NavigationPillButton stub
 struct NavigationPillButton: View {
     var title: String = "Home"
 
     var body: some View {
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                SidebarState.shared.isOpen = true
-            }
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.85))
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.95))
-            }
-        }
-        .buttonStyle(NavigationPillButtonStyle())
-        .focusEffectDisabled()
+        EmptyView()
     }
 }
 

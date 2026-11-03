@@ -115,12 +115,6 @@ struct HeroCarouselView: View {
                     heroInfoOverlay(item)
                 }
 
-                // Apple TV Home button at top-left (scrolls off naturally with Hero!)
-                NavigationPillButton(title: "Home")
-                    .padding(.leading, 64)
-                    .padding(.top, 48)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
                 // Page indicator dots at bottom right
                 HStack(spacing: 10) {
                     ForEach(0..<min(items.count, 6), id: \.self) { idx in

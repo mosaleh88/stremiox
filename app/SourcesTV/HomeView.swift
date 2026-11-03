@@ -130,9 +130,7 @@ struct HomeView: View {
                             HeroCarouselView(items: heroCarouselItems)
                                 .ignoresSafeArea(.container, edges: .top)
                         } else {
-                            NavigationPillButton(title: "Home")
-                                .padding(.leading, Theme.Space.screenEdge)
-                                .padding(.top, Theme.Space.md)
+                            Spacer().frame(height: 90)
                         }
 
                         // Continue Watching Row (Rounded Landscape Cards)

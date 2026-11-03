@@ -18,7 +18,7 @@ Dark, warm, and cinematic. The canvas is a deep warm near-black (`#15120E`) so p
 ## Navigation & Sidebar (Apple TV 26 Style)
 
 - **Left Sidebar:** Native left sidebar panel (`SidebarView`) with user profile avatar, username, and live 1s clock at top. Items show circular icons and labels (Search, Home, Discover, Live TV, Library, Add-ons, Settings). Solid dark semi-opaque fill (`#15120E` @ 96%) without live blurs.
-- **Top-left Home Navigation:** Small translucent "Home" / tab pill with back chevron (`< Home`) at the top-left of the viewport. Siri Remote Menu button (`.onExitCommand`) cleanly pops back to the sidebar and Home.
+- **Top Navigation Bar:** Native Apple TV top navigation bar (`TopNavigationBar`) floating at the top of the viewport with top scrim gradient. Displays primary tabs (`Search`, `Home`, `Discover`, `Live TV`, `Library`, `Add-ons`, `Settings`), live 1s clock, and user profile avatar. Unfocused tabs show clean translucent typography; selected tab shows subtle glass pill; focused tab highlights with solid white pill, black text/icon, and elevated drop shadow. Focus transitions naturally between top bar and screen content (up/down swipe, Siri Remote Menu).
 
 ## Color
 

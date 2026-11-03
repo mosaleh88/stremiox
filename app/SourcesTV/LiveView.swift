@@ -64,7 +64,7 @@ struct LiveView: View {
                         // Top Navigation: Mode Switcher + Server Badge
                         topNavigationHeader
                             .padding(.horizontal, Theme.Space.screenEdge)
-                            .padding(.top, Theme.Space.md)
+                            .padding(.top, 100)
                             .padding(.bottom, Theme.Space.sm)
 
                         // Categories & Content Layout
@@ -164,7 +164,6 @@ struct LiveView: View {
 
     private var topNavigationHeader: some View {
         HStack(alignment: .center, spacing: Theme.Space.lg) {
-            NavigationPillButton(title: "Live TV")
             Text("Live TV").screenTitleStyle()
 
             Spacer()
